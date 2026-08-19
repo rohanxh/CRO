@@ -1,5 +1,6 @@
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
 import { extractPageData, vitalsInitScript, type ExtractArgs } from "./extract";
+import { challengeMessage, detectChallenge } from "./challenge";
 import type { PerfMetrics, ViewportCapture, ViewportName } from "../types";
 
 const VIEWPORTS: Record<
@@ -27,6 +28,27 @@ const VIEWPORTS: Record<
 const NAV_TIMEOUT = 45_000;
 
 export class CaptureError extends Error {}
+
+/**
+ * Optional headers sent with every request, as a JSON object in CRO_AUDIT_HEADERS.
+ * Lets you allowlist this auditor in your own WAF/CDN by a shared secret header
+ * rather than trying to look like an ordinary visitor.
+ */
+function auditHeaders(): Record<string, string> | undefined {
+  const raw = process.env.CRO_AUDIT_HEADERS;
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      if (typeof v === "string") out[k] = v;
+    }
+    return Object.keys(out).length ? out : undefined;
+  } catch {
+    console.warn("CRO_AUDIT_HEADERS is not valid JSON; ignoring it.");
+    return undefined;
+  }
+}
 
 export interface CaptureOptions {
   url: string;
@@ -139,6 +161,43 @@ function attachCollectors(page: Page, targetHost: string) {
   return { stats, consoleErrors };
 }
 
+/**
+ * Interstitials clear themselves within a few seconds. Poll until the real page
+ * appears; return the blocking vendor if it never does.
+ */
+async function settleChallenge(
+  page: Page,
+  onProgress?: (m: string) => void
+): Promise<string | null> {
+  const deadline = Date.now() + 25_000;
+  let announced = false;
+  let lastVendor: string | null = null;
+
+  for (;;) {
+    let verdict;
+    try {
+      verdict = await page.evaluate(detectChallenge);
+    } catch {
+      // Context destroyed mid-navigation: the challenge is resolving.
+      await page.waitForTimeout(1000);
+      if (Date.now() > deadline) return lastVendor;
+      continue;
+    }
+
+    if (!verdict.challenged) return null;
+    lastVendor = verdict.vendor;
+
+    if (!announced) {
+      onProgress?.(`Waiting for ${verdict.vendor ?? "a security check"} to clear…`);
+      announced = true;
+    }
+    if (Date.now() > deadline) return lastVendor;
+
+    await page.waitForTimeout(1500);
+    await page.waitForLoadState("domcontentloaded", { timeout: 5000 }).catch(() => {});
+  }
+}
+
 async function scrollThroughPage(page: Page) {
   await page.evaluate(async () => {
     const step = Math.round(window.innerHeight * 0.8);
@@ -197,6 +256,11 @@ async function captureViewport(
 
     await page.waitForLoadState("networkidle", { timeout: 12_000 }).catch(() => {});
     await page.waitForTimeout(900);
+
+    const blockedBy = await settleChallenge(page, onProgress);
+    if (blockedBy !== null) {
+      throw new CaptureError(challengeMessage(blockedBy, url));
+    }
 
     onProgress?.(`Capturing above-the-fold view (${viewport})…`);
     const foldShot = await page.screenshot({ type: "jpeg", quality: 78 });
@@ -290,10 +354,17 @@ async function captureViewport(
  * charged for cold-connection latency the next one avoids.
  */
 async function warmUp(browser: Browser, url: string) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true, serviceWorkers: "block" });
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    serviceWorkers: "block",
+    userAgent: VIEWPORTS.desktop.userAgent,
+    extraHTTPHeaders: auditHeaders(),
+  });
   try {
     const page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    // Gives a JS interstitial a chance to run before the measured loads.
+    await page.waitForTimeout(2500);
   } catch {
     /* a failed warm-up must not fail the audit */
   } finally {
@@ -320,6 +391,7 @@ export async function capture({ url, onProgress }: CaptureOptions): Promise<Capt
       timezoneId: "UTC",
       ignoreHTTPSErrors: true,
       serviceWorkers: "block",
+      extraHTTPHeaders: auditHeaders(),
     });
     context.setDefaultTimeout(NAV_TIMEOUT);
     try {
