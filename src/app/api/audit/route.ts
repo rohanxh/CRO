@@ -1,16 +1,23 @@
 import { runAudit, CaptureError, UrlValidationError } from "@/lib/audit";
+import { publicModelList, isAiConfigured } from "@/lib/audit";
 import type { ProgressEvent } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+export async function GET() {
+  return Response.json({ models: publicModelList(), aiEnabled: isAiConfigured() });
+}
+
 export async function POST(request: Request) {
   let url: string;
+  let model: string | null = null;
   try {
-    const body = (await request.json()) as { url?: unknown };
+    const body = (await request.json()) as { url?: unknown; model?: unknown };
     if (typeof body.url !== "string") throw new Error("bad body");
     url = body.url;
+    if (typeof body.model === "string") model = body.model;
   } catch {
     return Response.json({ error: "Send a JSON body of the form { url: string }." }, { status: 400 });
   }
@@ -41,7 +48,7 @@ export async function POST(request: Request) {
       }, 15_000);
 
       try {
-        const report = await runAudit({ url, onProgress: send });
+        const report = await runAudit({ url, model, onProgress: send });
         send({ type: "report", report });
       } catch (err) {
         const message =

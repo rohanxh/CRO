@@ -61,6 +61,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
           <p className="mt-1 truncate text-xs text-ink-500">
             {report.finalUrl} · {new Date(report.generatedAt).toLocaleString()} ·{" "}
             {(report.durationMs / 1000).toFixed(1)}s
+            {report.aiEnabled && report.model?.label ? ` · analysed by ${report.model.label}` : ""}
           </p>
         </div>
         <div className="flex gap-2">

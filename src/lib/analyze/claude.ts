@@ -1,9 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildEvidenceDigest, buildUserPrompt, SYSTEM_PROMPT } from "./prompt";
+import { buildEvidenceDigest, buildSystemPrompt, buildUserPrompt } from "./prompt";
+import { type ModelProfile } from "./models";
 import type { Category, HeuristicSignal, Issue, SiteUnderstanding } from "../types";
 import type { CaptureResult } from "../capture";
-
-const MODEL = process.env.CRO_MODEL ?? "claude-sonnet-5";
 
 const CATEGORIES: Category[] = [
   "value-proposition",
@@ -193,7 +192,8 @@ function slug(s: string, i: number) {
 export async function analyzeWithClaude(
   cap: CaptureResult,
   signals: HeuristicSignal[],
-  targetUrl: string
+  targetUrl: string,
+  model: ModelProfile
 ): Promise<AiAnalysis> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
@@ -212,9 +212,9 @@ export async function analyzeWithClaude(
   }));
 
   const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 16000,
-    system: SYSTEM_PROMPT,
+    model: model.apiModel,
+    max_tokens: model.maxTokens,
+    system: buildSystemPrompt(model),
     tools: [REPORT_TOOL],
     tool_choice: { type: "tool", name: REPORT_TOOL.name },
     messages: [
@@ -222,7 +222,7 @@ export async function analyzeWithClaude(
         role: "user",
         content: [
           ...images,
-          { type: "text", text: buildUserPrompt(digest, targetUrl) },
+          { type: "text", text: buildUserPrompt(digest, targetUrl, model) },
         ],
       },
     ],

@@ -312,6 +312,7 @@ export interface AuditReport {
   meta: PageMeta;
   aiEnabled: boolean;
   aiError: string | null;
+  model: { id: string; label: string };
 }
 
 export type ProgressEvent =

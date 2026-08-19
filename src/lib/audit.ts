@@ -2,10 +2,13 @@ import { capture, CaptureError } from "./capture";
 import { validateTargetUrl, UrlValidationError } from "./capture/url";
 import { runHeuristics } from "./heuristics";
 import { analyzeWithClaude, isAiConfigured } from "./analyze/claude";
+import { resolveModel } from "./analyze/models";
 import { computeScores, sortIssues } from "./score";
 import type { AuditReport, HeuristicSignal, Issue, ProgressEvent } from "./types";
 
 export { CaptureError, UrlValidationError };
+export { isAiConfigured } from "./analyze/claude";
+export { publicModelList, DEFAULT_MODEL } from "./analyze/models";
 
 const EFFORT_BY_SEVERITY: Record<HeuristicSignal["severity"], Issue["effort"]> = {
   critical: "moderate",
@@ -56,11 +59,13 @@ function fallbackSummary(signals: HeuristicSignal[]) {
 
 export interface RunAuditOptions {
   url: string;
+  model?: string | null;
   onProgress?: (event: ProgressEvent) => void;
 }
 
-export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<AuditReport> {
+export async function runAudit({ url, model: modelInput, onProgress }: RunAuditOptions): Promise<AuditReport> {
   const started = Date.now();
+  const model = resolveModel(modelInput);
   const emit = (step: string, message: string, pct: number) =>
     onProgress?.({ type: "status", step, message, pct });
 
@@ -84,9 +89,9 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
   const aiEnabled = isAiConfigured();
 
   if (aiEnabled) {
-    emit("analyze", "Reading the page like a visitor would…", 62);
+    emit("analyze", `Reading the page like a visitor would (${model.label})…`, 62);
     try {
-      const ai = await analyzeWithClaude(cap, signals, targetUrl);
+      const ai = await analyzeWithClaude(cap, signals, targetUrl, model);
       issues = ai.issues;
       understanding = ai.understanding;
       summary = ai.summary;
@@ -137,5 +142,6 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
     meta: cap.desktop.meta,
     aiEnabled,
     aiError,
+    model: { id: model.id, label: model.label },
   };
 }
