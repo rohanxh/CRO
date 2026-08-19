@@ -2,13 +2,13 @@ import { capture, CaptureError } from "./capture";
 import { validateTargetUrl, UrlValidationError } from "./capture/url";
 import { runHeuristics } from "./heuristics";
 import { analyzeWithClaude, isAiConfigured } from "./analyze/claude";
-import { resolveModel } from "./analyze/models";
+import { runStrategyPass, type StrategyBrief } from "./analyze/strategy";
+import { PIPELINE_LABEL } from "./analyze/models";
 import { computeScores, sortIssues } from "./score";
 import type { AuditReport, HeuristicSignal, Issue, ProgressEvent } from "./types";
 
 export { CaptureError, UrlValidationError };
 export { isAiConfigured } from "./analyze/claude";
-export { publicModelList, DEFAULT_MODEL } from "./analyze/models";
 
 const EFFORT_BY_SEVERITY: Record<HeuristicSignal["severity"], Issue["effort"]> = {
   critical: "moderate",
@@ -59,13 +59,11 @@ function fallbackSummary(signals: HeuristicSignal[]) {
 
 export interface RunAuditOptions {
   url: string;
-  model?: string | null;
   onProgress?: (event: ProgressEvent) => void;
 }
 
-export async function runAudit({ url, model: modelInput, onProgress }: RunAuditOptions): Promise<AuditReport> {
+export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<AuditReport> {
   const started = Date.now();
-  const model = resolveModel(modelInput);
   const emit = (step: string, message: string, pct: number) =>
     onProgress?.({ type: "status", step, message, pct });
 
@@ -89,9 +87,19 @@ export async function runAudit({ url, model: modelInput, onProgress }: RunAuditO
   const aiEnabled = isAiConfigured();
 
   if (aiEnabled) {
-    emit("analyze", `Reading the page like a visitor would (${model.label})…`, 62);
+    // Sonnet's short strategy pass, in between capture and the detailed audit.
+    // Best-effort: if it fails, Haiku runs unguided rather than failing the audit.
+    let brief: StrategyBrief | null = null;
+    emit("strategy", "Working out what matters most on this page…", 58);
     try {
-      const ai = await analyzeWithClaude(cap, signals, targetUrl, model);
+      brief = await runStrategyPass(cap, signals, targetUrl);
+    } catch {
+      brief = null;
+    }
+
+    emit("analyze", "Reading the page like a visitor would…", 66);
+    try {
+      const ai = await analyzeWithClaude(cap, signals, targetUrl, brief);
       issues = ai.issues;
       understanding = ai.understanding;
       summary = ai.summary;
@@ -142,6 +150,6 @@ export async function runAudit({ url, model: modelInput, onProgress }: RunAuditO
     meta: cap.desktop.meta,
     aiEnabled,
     aiError,
-    model: { id: model.id, label: model.label },
+    model: { id: "haiku-sonnet", label: PIPELINE_LABEL },
   };
 }

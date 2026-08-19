@@ -64,6 +64,23 @@
     border: 1px solid transparent;
     white-space: nowrap;
   }
+
+  .cta-input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-ink-600);
+    background: var(--color-ink-850);
+    padding: 0.55rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-ink-100);
+    outline: none;
+  }
+  .cta-input::placeholder {
+    color: var(--color-ink-600);
+  }
+  .cta-input:focus {
+    border-color: var(--color-brand-500);
+  }
 }
 
 /* Firefox */

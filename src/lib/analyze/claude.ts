@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildEvidenceDigest, buildSystemPrompt, buildUserPrompt } from "./prompt";
-import { type ModelProfile } from "./models";
+import { PRIMARY } from "./models";
+import { briefToPromptBlock, type StrategyBrief } from "./strategy";
 import type { Category, HeuristicSignal, Issue, SiteUnderstanding } from "../types";
 import type { CaptureResult } from "../capture";
 
@@ -193,7 +194,7 @@ export async function analyzeWithClaude(
   cap: CaptureResult,
   signals: HeuristicSignal[],
   targetUrl: string,
-  model: ModelProfile
+  brief: StrategyBrief | null
 ): Promise<AiAnalysis> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
@@ -211,19 +212,20 @@ export async function analyzeWithClaude(
     source: { type: "base64", media_type: "image/jpeg", data },
   }));
 
+  const userText = brief
+    ? `${buildUserPrompt(digest, targetUrl, PRIMARY)}\n\n---\nSTRATEGIST'S BRIEF\n\n${briefToPromptBlock(brief)}`
+    : buildUserPrompt(digest, targetUrl, PRIMARY);
+
   const response = await client.messages.create({
-    model: model.apiModel,
-    max_tokens: model.maxTokens,
-    system: buildSystemPrompt(model),
+    model: PRIMARY.apiModel,
+    max_tokens: PRIMARY.maxTokens,
+    system: buildSystemPrompt(PRIMARY),
     tools: [REPORT_TOOL],
     tool_choice: { type: "tool", name: REPORT_TOOL.name },
     messages: [
       {
         role: "user",
-        content: [
-          ...images,
-          { type: "text", text: buildUserPrompt(digest, targetUrl, model) },
-        ],
+        content: [...images, { type: "text", text: userText }],
       },
     ],
   });

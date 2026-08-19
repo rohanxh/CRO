@@ -1,21 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { AuditReport, ProgressEvent } from "@/lib/types";
 import { ReportView } from "@/components/ReportView";
-
-interface ModelOption {
-  id: string;
-  label: string;
-  tagline: string;
-  approxCostPerAudit: string;
-  speed: "fastest" | "balanced" | "deepest";
-}
 
 const STEPS = [
   { key: "validate", label: "Resolving URL" },
   { key: "capture", label: "Loading on desktop and mobile" },
   { key: "heuristics", label: "Running conversion checks" },
+  { key: "strategy", label: "Working out what matters most" },
   { key: "analyze", label: "Reading the page like a visitor" },
   { key: "score", label: "Prioritising fixes" },
 ];
@@ -26,23 +19,7 @@ export default function Home() {
   const [report, setReport] = useState<AuditReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{ step: string; message: string; pct: number } | null>(null);
-  const [models, setModels] = useState<ModelOption[]>([]);
-  const [modelId, setModelId] = useState<string>("haiku");
-  const [aiEnabled, setAiEnabled] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    fetch("/api/audit")
-      .then((r) => r.json())
-      .then((d: { models?: ModelOption[]; aiEnabled?: boolean }) => {
-        if (d.models?.length) {
-          setModels(d.models);
-          setModelId(d.models[0].id);
-        }
-        setAiEnabled(d.aiEnabled ?? true);
-      })
-      .catch(() => {});
-  }, []);
 
   async function start(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +37,7 @@ export default function Home() {
       const res = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, model: modelId }),
+        body: JSON.stringify({ url }),
         signal: controller.signal,
       });
 
@@ -161,45 +138,6 @@ export default function Home() {
               {running ? "Auditing…" : "Run audit"}
             </button>
           </div>
-
-          {aiEnabled && models.length > 0 && (
-            <div className="mt-2 flex flex-col gap-1.5 border-t border-ink-700/60 px-2 pb-1 pt-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-500">
-                  Analysis model
-                </span>
-                <span className="text-[11px] text-ink-500">
-                  {models.find((m) => m.id === modelId)?.approxCostPerAudit} per audit
-                </span>
-              </div>
-              <div className="grid gap-1.5 sm:grid-cols-3">
-                {models.map((m) => {
-                  const active = m.id === modelId;
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      disabled={running}
-                      onClick={() => setModelId(m.id)}
-                      className={`rounded-lg border px-3 py-2 text-left transition-colors disabled:opacity-60 ${
-                        active
-                          ? "border-brand-500 bg-brand-500/10"
-                          : "border-ink-700 bg-ink-850 hover:border-ink-600"
-                      }`}
-                    >
-                      <span className="flex items-center justify-between">
-                        <span className={`text-sm font-medium ${active ? "text-brand-400" : "text-ink-200"}`}>
-                          {m.label}
-                        </span>
-                        <span className="text-[10px] uppercase tracking-wide text-ink-500">{m.speed}</span>
-                      </span>
-                      <span className="mt-0.5 block text-[11px] leading-snug text-ink-500">{m.tagline}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </form>
 
         {error && (

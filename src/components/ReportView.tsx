@@ -12,6 +12,7 @@ import {
 } from "@/lib/types";
 import { scoreBand } from "@/lib/score";
 import { IssueCard } from "./IssueCard";
+import { ContactCTA } from "./ContactCTA";
 import { DamageBar, DesktopIcon, MetaChip, MobileIcon, ScoreDial } from "./ui";
 
 type PlatformFilter = "all" | "desktop" | "mobile";
@@ -373,6 +374,11 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
           </div>
         )}
       </section>
+
+      {/* Lead capture — the point of the tool as a lead magnet. */}
+      <div className="print:hidden">
+        <ContactCTA report={report} />
+      </div>
     </div>
   );
 }
