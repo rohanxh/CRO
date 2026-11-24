@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
-  return Response.json({ ghlWebhookUrl: getSetting(SETTING_GHL_WEBHOOK) ?? "" });
+  return Response.json({ ghlWebhookUrl: (await getSetting(SETTING_GHL_WEBHOOK)) ?? "" });
 }
 
 export async function PUT(request: Request) {
@@ -35,6 +35,6 @@ export async function PUT(request: Request) {
     }
   }
 
-  setSetting(SETTING_GHL_WEBHOOK, webhook);
+  await setSetting(SETTING_GHL_WEBHOOK, webhook);
   return Response.json({ ok: true, ghlWebhookUrl: webhook });
 }

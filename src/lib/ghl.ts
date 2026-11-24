@@ -21,7 +21,7 @@ export function ghlPayload(lead: LeadInput) {
   };
 }
 
-export function ghlWebhookUrl(): string | null {
+export function ghlWebhookUrl(): Promise<string | null> {
   return getSetting(SETTING_GHL_WEBHOOK);
 }
 
@@ -36,7 +36,7 @@ export async function forwardToGhl(
   payload: Record<string, unknown>,
   urlOverride?: string
 ): Promise<ForwardResult> {
-  const url = urlOverride ?? ghlWebhookUrl();
+  const url = urlOverride ?? (await ghlWebhookUrl());
   if (!url) return { ok: false, error: "No webhook URL configured." };
 
   try {

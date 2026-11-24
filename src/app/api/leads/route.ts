@@ -47,17 +47,17 @@ export async function POST(request: Request) {
 
   let id: number;
   try {
-    id = insertLead(lead);
+    id = await insertLead(lead);
   } catch {
     return Response.json({ error: "Could not save your details. Please try again." }, { status: 500 });
   }
 
   // Forward to Go High Level if configured — best-effort, never blocks the reply
   // beyond its own short timeout, never fails the submission.
-  if (ghlWebhookUrl()) {
+  if (await ghlWebhookUrl()) {
     const result = await forwardToGhl(ghlPayload(lead));
     try {
-      markLeadForwarded(id, result.ok, result.error);
+      await markLeadForwarded(id, result.ok, result.error);
     } catch {
       /* forwarding status is non-critical */
     }

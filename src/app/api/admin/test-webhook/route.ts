@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     /* body optional */
   }
 
-  const url = override ?? getSetting(SETTING_GHL_WEBHOOK) ?? "";
+  const url = override ?? (await getSetting(SETTING_GHL_WEBHOOK)) ?? "";
   if (!url) {
     return Response.json({ error: "No webhook URL to test. Enter or save one first." }, { status: 400 });
   }

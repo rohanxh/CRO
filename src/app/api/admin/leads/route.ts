@@ -8,5 +8,6 @@ export async function GET() {
   const denied = await requireAdmin();
   if (denied) return denied;
 
-  return Response.json({ stats: leadStats(), leads: listLeads() });
+  const [stats, leads] = await Promise.all([leadStats(), listLeads()]);
+  return Response.json({ stats, leads });
 }
