@@ -8,7 +8,7 @@ const STEPS = [
   { key: "validate", label: "Resolving URL" },
   { key: "capture", label: "Loading on desktop and mobile" },
   { key: "heuristics", label: "Running conversion checks" },
-  { key: "strategy", label: "Working out what matters most" },
+  { key: "strategy", label: "Researching the business" },
   { key: "analyze", label: "Reading the page like a visitor" },
   { key: "score", label: "Prioritising fixes" },
 ];
@@ -185,7 +185,8 @@ export default function Home() {
               })}
             </ul>
             <p className="mt-4 text-xs text-ink-500">
-              A full audit takes roughly 40–90 seconds. Keep this tab open.
+              A full audit takes 2–4 minutes — it loads both views in a real browser and researches
+              the business. Keep this tab open.
             </p>
           </div>
         )}

@@ -313,6 +313,8 @@ export interface AuditReport {
   aiEnabled: boolean;
   aiError: string | null;
   model: { id: string; label: string };
+  /** What the strategist learned by researching the business off-page. */
+  research: { businessContext: string; localPresence: string } | null;
 }
 
 export type ProgressEvent =

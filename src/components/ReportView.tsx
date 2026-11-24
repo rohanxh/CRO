@@ -195,6 +195,26 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
         </section>
       </div>
 
+      {/* Off-page research */}
+      {report.research && (
+        <section className="panel mb-6 p-6">
+          <SectionTitle>What we found about the business</SectionTitle>
+          <p className="mt-1 text-[11px] text-ink-500">
+            Researched beyond the page — services, reputation and reviews, and local presence — so the
+            findings fit the real business, not just what this page happens to say.
+          </p>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
+            {report.research.businessContext && (
+              <Detail term="Business & reputation" value={report.research.businessContext} />
+            )}
+            {report.research.localPresence &&
+              !/^not a local business/i.test(report.research.localPresence.trim()) && (
+                <Detail term="Local presence" value={report.research.localPresence} />
+              )}
+          </div>
+        </section>
+      )}
+
       {/* Screenshots */}
       <section className="panel mb-6 p-6">
         <SectionTitle>What the visitor sees first</SectionTitle>

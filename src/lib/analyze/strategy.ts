@@ -1,139 +1,150 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildEvidenceDigest } from "./prompt";
 import { STRATEGIST } from "./models";
-import type { HeuristicSignal } from "../types";
-import type { CaptureResult } from "../capture";
 
 /**
- * The compact strategic brief Sonnet produces before Haiku writes the full audit.
- * It is guidance, not the final report — Haiku still owns the structured output.
+ * Off-page business research, produced by Sonnet with web search while the page
+ * is still being captured. It is about the BUSINESS — services, reputation,
+ * reviews, local presence — not the page's pixels (that is Haiku's job). Running
+ * it in parallel with capture keeps it off the critical path, and it is always
+ * best-effort: a null result just means Haiku runs without it.
  */
 export interface StrategyBrief {
-  pageType: string;
-  audience: string;
-  primaryGoal: string;
-  biggestBlocker: string;
+  businessContext: string;
+  localPresence: string;
   priorities: string[];
   watchOuts: string[];
 }
 
 const BRIEF_TOOL: Anthropic.Tool = {
-  name: "record_strategy_brief",
+  name: "record_research",
   description:
-    "Record a short strategic brief for a conversion audit of this page: what the page is, who it is for, its one goal, the single biggest thing blocking conversions, the few highest-leverage angles to pursue, and traps to avoid.",
+    "Record what you learned about this business from research, to guide a conversion audit of its website.",
   input_schema: {
     type: "object",
     properties: {
-      pageType: { type: "string", description: "What kind of page this is, in a few words." },
-      audience: { type: "string", description: "Who it is for and their state of mind." },
-      primaryGoal: { type: "string", description: "The single action the page most wants." },
-      biggestBlocker: {
+      businessContext: {
         type: "string",
-        description: "The one thing most hurting conversion on this specific page, in one sentence.",
+        description:
+          "What the business actually sells, who it serves, and anything from reviews/reputation that should shape the page's messaging or trust signals (e.g. 'reviews praise same-day service but complain pricing is unclear'). If research found nothing useful, say so plainly.",
+      },
+      localPresence: {
+        type: "string",
+        description:
+          "For a local or service-area business: its location(s) and local conversion factors — Google Business presence, local reviews, and how many/which locations it has. Write 'Not a local business' if it is purely online/national.",
       },
       priorities: {
         type: "array",
         items: { type: "string" },
-        minItems: 3,
-        maxItems: 6,
+        minItems: 2,
+        maxItems: 5,
         description:
-          "The highest-leverage angles the detailed audit should focus on, most impactful first. Each a short instruction grounded in what is actually on this page.",
+          "The highest-leverage angles the detailed audit should focus on, informed by what research revealed about this business and market. Most impactful first.",
       },
       watchOuts: {
         type: "array",
         items: { type: "string" },
-        maxItems: 4,
+        maxItems: 3,
         description:
-          "Things NOT to flag or common generic advice that would be wrong for THIS page. Keeps the detailed pass honest.",
+          "Generic advice that would be WRONG for this specific business/market, so the detailed pass does not waste a finding on it.",
       },
     },
-    required: ["pageType", "audience", "primaryGoal", "biggestBlocker", "priorities", "watchOuts"],
+    required: ["businessContext", "localPresence", "priorities", "watchOuts"],
   },
 };
 
-const SYSTEM = `You are a principal conversion strategist doing a fast first read of a web page before a detailed audit.
+const WEB_SEARCH = {
+  type: "web_search_20260209",
+  name: "web_search",
+  max_uses: 4,
+} as unknown as Anthropic.Tool;
 
-You see the two above-the-fold views (desktop and mobile) and a digest of measured evidence. Do not write a full audit. Instead, decide what actually matters for THIS page and hand the detailed reviewer a tight brief: what the page is, who it is for, its one goal, the single biggest blocker, the few highest-leverage angles, and what would be a mistake to flag here.
+const SYSTEM = `You are a conversion strategist researching a business before its website is audited, so the audit fits the real business and market rather than judging the page in isolation.
 
-Be specific to this page — quote real text where it helps. Judge the page against its own goal and audience, not a generic checklist. A local service page and a B2B SaaS page need different advice. Then call record_strategy_brief exactly once.`;
+Use web search (2–4 focused searches) to learn:
+- What the business sells and who it serves.
+- Its reputation: find reviews (Google, Trustpilot, industry sites) and note recurring themes — what customers praise and complain about — since those are the objections and proof points the page should address.
+- If it is local or service-area, its location(s) and local presence (Google Business Profile, local reviews, how many locations).
+
+Be concise and factual. When done, you MUST call record_research exactly once.`;
 
 /**
- * Runs the Sonnet strategy pass. Best-effort: callers treat a thrown error or a
- * null return as "no brief" and continue with the primary analysis alone.
+ * Runs the Sonnet research pass from the URL alone (no screenshots), so it can
+ * run concurrently with page capture. Best-effort: returns null on any problem.
  */
-export async function runStrategyPass(
-  cap: CaptureResult,
-  signals: HeuristicSignal[],
-  targetUrl: string
-): Promise<StrategyBrief | null> {
+export async function runStrategyPass(targetUrl: string): Promise<StrategyBrief | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
-  const client = new Anthropic({ apiKey, maxRetries: 1, timeout: 90_000 });
-  const digest = buildEvidenceDigest(cap, signals);
+  const client = new Anthropic({ apiKey, maxRetries: 0, timeout: 120_000 });
 
-  // Only the two above-the-fold views — the highest-signal, lowest-cost input.
-  const images: Anthropic.ImageBlockParam[] = [
-    cap.desktop.foldScreenshot,
-    cap.mobile.foldScreenshot,
-  ].map((data) => ({
-    type: "image",
-    source: { type: "base64", media_type: "image/jpeg", data },
-  }));
+  const messages: Anthropic.MessageParam[] = [
+    {
+      role: "user",
+      content: `Research the business behind this website: ${targetUrl}\n\nThen call record_research once.`,
+    },
+  ];
 
-  const response = await client.messages.create({
-    model: STRATEGIST.apiModel,
-    max_tokens: STRATEGIST.maxTokens,
-    system: SYSTEM,
-    tools: [BRIEF_TOOL],
-    tool_choice: { type: "tool", name: BRIEF_TOOL.name },
-    messages: [
-      {
-        role: "user",
-        content: [
-          ...images,
-          {
-            type: "text",
-            text: `Page: ${targetUrl}\nImage 1 is desktop above the fold, image 2 is mobile above the fold.\n\nMeasured evidence digest:\n\n\`\`\`json\n${JSON.stringify(digest, null, 1)}\n\`\`\`\n\nGive the detailed reviewer their brief. Call record_strategy_brief once.`,
-          },
-        ],
-      },
-    ],
-  });
+  // web_search is a server tool and may pause between rounds; resubmit to continue.
+  let response: Anthropic.Message | null = null;
+  for (let i = 0; i < 5; i++) {
+    response = await client.messages.create({
+      model: STRATEGIST.apiModel,
+      max_tokens: 4000,
+      system: SYSTEM,
+      tools: [WEB_SEARCH, BRIEF_TOOL],
+      messages,
+    });
+    if (response.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: response.content });
+      continue;
+    }
+    break;
+  }
+  if (!response) return null;
 
-  const toolUse = response.content.find(
-    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
-  );
+  const toolUse = [...response.content]
+    .reverse()
+    .find(
+      (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === BRIEF_TOOL.name
+    );
   if (!toolUse) return null;
 
   const raw = toolUse.input as Partial<StrategyBrief>;
-  if (!raw.primaryGoal || !Array.isArray(raw.priorities)) return null;
+  if (!Array.isArray(raw.priorities)) return null;
 
+  const s = (v: string | undefined) => stripCitations(v ?? "");
   return {
-    pageType: raw.pageType ?? "",
-    audience: raw.audience ?? "",
-    primaryGoal: raw.primaryGoal,
-    biggestBlocker: raw.biggestBlocker ?? "",
-    priorities: raw.priorities ?? [],
-    watchOuts: raw.watchOuts ?? [],
+    businessContext: s(raw.businessContext),
+    localPresence: s(raw.localPresence),
+    priorities: (raw.priorities ?? []).map(s),
+    watchOuts: (raw.watchOuts ?? []).map(s),
   };
 }
 
-/** Renders the brief as a prompt block injected into the primary analysis. */
+/** Web search leaks citation markup (e.g. `(cite index="2-2">…`) into text; remove it. */
+function stripCitations(text: string): string {
+  return text
+    // Strip citation open tags, including the leading < or ( the model emits.
+    .replace(/[<(]?\s*cite\s+index="[^"]*"\s*>/gi, "")
+    .replace(/<\/?cite[^>]*>/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/** Renders the research as a prompt block injected into the primary analysis. */
 export function briefToPromptBlock(brief: StrategyBrief): string {
   const lines = [
-    "A senior strategist did a first read of this page and left you this brief. Treat it as strong guidance, but you are looking at the full page — correct it where the evidence disagrees, and ground every finding in what is actually there.",
+    "Before you audit the page, here is what a strategist found by researching this business off-page (services, reviews, local presence). Use it to ground your findings — especially trust/social-proof and local angles — but correct it where the on-page evidence disagrees.",
     "",
-    `- Page: ${brief.pageType}`,
-    `- Audience: ${brief.audience}`,
-    `- Primary goal: ${brief.primaryGoal}`,
-    `- Biggest blocker: ${brief.biggestBlocker}`,
-    "",
-    "Focus your findings on these angles first:",
-    ...brief.priorities.map((p, i) => `  ${i + 1}. ${p}`),
   ];
+  if (brief.businessContext) lines.push(`- Business & reputation: ${brief.businessContext}`);
+  if (brief.localPresence) lines.push(`- Local presence: ${brief.localPresence}`);
+  if (brief.priorities.length) {
+    lines.push("", "Angles research suggests you prioritise:");
+    lines.push(...brief.priorities.map((p, i) => `  ${i + 1}. ${p}`));
+  }
   if (brief.watchOuts.length) {
-    lines.push("", "Do not flag these (they would be wrong for this page):");
+    lines.push("", "Do not flag these (wrong for this business):");
     lines.push(...brief.watchOuts.map((w) => `  - ${w}`));
   }
   return lines.join("\n");

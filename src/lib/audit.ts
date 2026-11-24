@@ -70,6 +70,14 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
   emit("validate", "Checking the URL…", 3);
   const targetUrl = await validateTargetUrl(url);
 
+  const aiEnabled = isAiConfigured();
+
+  // Kick off off-page business research NOW, so it runs concurrently with the
+  // (slow) page capture instead of adding to the critical path. Best-effort.
+  const researchPromise: Promise<StrategyBrief | null> = aiEnabled
+    ? runStrategyPass(targetUrl).catch(() => null)
+    : Promise.resolve(null);
+
   emit("capture", "Opening the page in a real browser…", 8);
   const cap = await capture({
     url: targetUrl,
@@ -84,18 +92,12 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
   let summary: string;
   let topOpportunities: string[] = [];
   let aiError: string | null = null;
-  const aiEnabled = isAiConfigured();
+  let brief: StrategyBrief | null = null;
 
   if (aiEnabled) {
-    // Sonnet's short strategy pass, in between capture and the detailed audit.
-    // Best-effort: if it fails, Haiku runs unguided rather than failing the audit.
-    let brief: StrategyBrief | null = null;
-    emit("strategy", "Working out what matters most on this page…", 58);
-    try {
-      brief = await runStrategyPass(cap, signals, targetUrl);
-    } catch {
-      brief = null;
-    }
+    // Research was started before capture; await whatever it produced.
+    emit("strategy", "Researching the business…", 58);
+    brief = await researchPromise;
 
     emit("analyze", "Reading the page like a visitor would…", 66);
     try {
@@ -151,5 +153,9 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
     aiEnabled,
     aiError,
     model: { id: "haiku-sonnet", label: PIPELINE_LABEL },
+    research:
+      brief && (brief.businessContext || brief.localPresence)
+        ? { businessContext: brief.businessContext, localPresence: brief.localPresence }
+        : null,
   };
 }
