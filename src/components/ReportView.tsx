@@ -434,7 +434,7 @@ function PathTo100({ score, issues }: { score: number; issues: Issue[] }) {
   return (
     <div className="mt-8 border-t border-ink-700/60 pt-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-display text-base font-semibold text-ink-100">Path to 100</h3>
+        <h2 className="font-display text-base font-semibold text-ink-100">Path to 100</h2>
         <span className="text-xs text-ink-400">Audit score points, not a sales forecast</span>
       </div>
       <div
