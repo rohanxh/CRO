@@ -254,12 +254,45 @@ async function captureViewport(
       loadErrorText = msg.slice(0, 300);
     }
 
+    // Origin errors (Cloudflare 52x, 502/503/504) are often transient: reload a
+    // couple of times. Bot-check pages also answer 403/503, but settleChallenge
+    // owns those, so don't reload them here.
+    for (let attempt = 1; attempt <= 2 && (statusCode ?? 0) >= 500; attempt++) {
+      const challenged = await page.evaluate(detectChallenge).catch(() => null);
+      if (challenged?.challenged) break;
+      onProgress?.(`Site returned a server error (HTTP ${statusCode}), retrying…`);
+      await page.waitForTimeout(3000 * attempt);
+      const retry = await page
+        .reload({ waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT })
+        .catch(() => null);
+      statusCode = retry?.status() ?? statusCode;
+    }
+
     await page.waitForLoadState("networkidle", { timeout: 12_000 }).catch(() => {});
     await page.waitForTimeout(900);
 
     const blockedBy = await settleChallenge(page, onProgress);
     if (blockedBy !== null) {
       throw new CaptureError(challengeMessage(blockedBy, url));
+    }
+
+    // Status of the document actually on screen now (a cleared bot check may
+    // have navigated past the first response).
+    const finalStatus = await page
+      .evaluate(
+        () =>
+          (performance.getEntriesByType("navigation")[0] as unknown as { responseStatus?: number })
+            ?.responseStatus ?? 0
+      )
+      .catch(() => 0);
+    if (finalStatus > 0) statusCode = finalStatus;
+    if ((statusCode ?? 0) >= 500) {
+      throw new CaptureError(
+        `${url} returned a server error (HTTP ${statusCode}) when loading on ${viewport}, even after retrying. ` +
+          `That's a problem on the website's own server, not something in the page design, so there is nothing to audit yet. ` +
+          `Please try again in a few minutes. If it's your site and it keeps happening, check your host's error logs and firewall or bot protection ` +
+          `(Cloudflare 520–527 errors mean the origin server dropped or garbled the connection).`
+      );
     }
 
     onProgress?.(`Capturing above-the-fold view (${viewport})…`);
