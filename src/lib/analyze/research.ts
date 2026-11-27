@@ -1,14 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { STRATEGIST } from "./models";
+import { RESEARCHER } from "./models";
 
 /**
- * Off-page business research, produced by Sonnet with web search while the page
+ * Off-page business research, produced by Haiku with web search while the page
  * is still being captured. It is about the BUSINESS — services, reputation,
- * reviews, local presence — not the page's pixels (that is Haiku's job). Running
+ * reviews, local presence — not the page's pixels (Sonnet assesses those). Running
  * it in parallel with capture keeps it off the critical path, and it is always
- * best-effort: a null result just means Haiku runs without it.
+ * best-effort: a null result just means the assessment runs without it.
  */
-export interface StrategyBrief {
+export interface ResearchBrief {
   businessContext: string;
   localPresence: string;
   priorities: string[];
@@ -53,7 +53,7 @@ const BRIEF_TOOL: Anthropic.Tool = {
 };
 
 const WEB_SEARCH = {
-  type: "web_search_20260209",
+  type: "web_search_20250305", // basic variant: Haiku 4.5 does not support the 20260209 one
   name: "web_search",
   max_uses: 4,
 } as unknown as Anthropic.Tool;
@@ -68,10 +68,10 @@ Use web search (2–4 focused searches) to learn:
 Be concise and factual. When done, you MUST call record_research exactly once.`;
 
 /**
- * Runs the Sonnet research pass from the URL alone (no screenshots), so it can
+ * Runs the Haiku research pass from the URL alone (no screenshots), so it can
  * run concurrently with page capture. Best-effort: returns null on any problem.
  */
-export async function runStrategyPass(targetUrl: string): Promise<StrategyBrief | null> {
+export async function runResearch(targetUrl: string): Promise<ResearchBrief | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
 
@@ -88,7 +88,7 @@ export async function runStrategyPass(targetUrl: string): Promise<StrategyBrief 
   let response: Anthropic.Message | null = null;
   for (let i = 0; i < 5; i++) {
     response = await client.messages.create({
-      model: STRATEGIST.apiModel,
+      model: RESEARCHER,
       max_tokens: 4000,
       system: SYSTEM,
       tools: [WEB_SEARCH, BRIEF_TOOL],
@@ -109,7 +109,7 @@ export async function runStrategyPass(targetUrl: string): Promise<StrategyBrief 
     );
   if (!toolUse) return null;
 
-  const raw = toolUse.input as Partial<StrategyBrief>;
+  const raw = toolUse.input as Partial<ResearchBrief>;
   if (!Array.isArray(raw.priorities)) return null;
 
   const s = (v: string | undefined) => stripCitations(v ?? "");
@@ -132,7 +132,7 @@ function stripCitations(text: string): string {
 }
 
 /** Renders the research as a prompt block injected into the primary analysis. */
-export function briefToPromptBlock(brief: StrategyBrief): string {
+export function briefToPromptBlock(brief: ResearchBrief): string {
   const lines = [
     "Before you audit the page, here is what a strategist found by researching this business off-page (services, reviews, local presence). Use it to ground your findings — especially trust/social-proof and local angles — but correct it where the on-page evidence disagrees.",
     "",

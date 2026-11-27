@@ -9,7 +9,8 @@ const STEPS = [
   { key: "capture", label: "Loading on desktop and mobile" },
   { key: "heuristics", label: "Running conversion checks" },
   { key: "strategy", label: "Researching the business" },
-  { key: "analyze", label: "Reading the page like a visitor" },
+  { key: "analyze", label: "Assessing conversion issues" },
+  { key: "report", label: "Writing your report" },
   { key: "score", label: "Prioritising fixes" },
 ];
 

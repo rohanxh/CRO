@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { buildEvidenceDigest, buildSystemPrompt, buildUserPrompt } from "./prompt";
-import { PRIMARY } from "./models";
-import { briefToPromptBlock, type StrategyBrief } from "./strategy";
+import { assessmentSop, buildEvidenceDigest, buildUserPrompt } from "./prompt";
+import { ASSESSOR } from "./models";
+import { briefToPromptBlock, type ResearchBrief } from "./research";
 import type { Category, HeuristicSignal, Issue, SiteUnderstanding } from "../types";
 import type { CaptureResult } from "../capture";
 
@@ -20,26 +20,21 @@ const CATEGORIES: Category[] = [
   "measurement",
 ];
 
-const REPORT_TOOL: Anthropic.Tool = {
+const FINDINGS_TOOL: Anthropic.Tool = {
   name: "report_cro_findings",
   description:
-    "Submit the complete conversion audit for the page: how you understand the page, an executive summary, the top opportunities, and the prioritised findings.",
+    "Submit the CRO assessment of the page: how you understand it, and the prioritised findings.",
   input_schema: {
     type: "object",
     properties: {
       understanding: {
         type: "object",
-        description: "Your read of what this page is, before any advice.",
+        description: "Your read of what this page is, before any advice (SOP steps 1-3).",
         properties: {
-          pageType: {
-            type: "string",
-            description:
-              "What kind of page this is, in your own words, e.g. 'B2B SaaS homepage', 'local service lead-gen landing page', 'ecommerce product page'.",
-          },
+          pageType: { type: "string", description: "What kind of page this is, in your own words." },
           businessModel: {
             type: "string",
-            description:
-              "How the business appears to make money and how a visitor becomes a customer.",
+            description: "How the business makes money and how a visitor becomes a customer.",
           },
           industryGuess: { type: "string", description: "Sector or niche, as inferred." },
           primaryConversionGoal: {
@@ -53,22 +48,19 @@ const REPORT_TOOL: Anthropic.Tool = {
           },
           targetAudience: {
             type: "string",
-            description: "Who this page is written for, and their likely state of mind.",
+            description: "Who this page is for, and their likely state of mind.",
           },
           valuePropositionAsUnderstood: {
             type: "string",
-            description:
-              "The value proposition as an outsider would actually understand it from the page, not as the business probably intends it.",
+            description: "The value proposition as an outsider actually understands it from the page.",
           },
           clarityVerdict: {
             type: "string",
-            description:
-              "One or two sentences on whether that value proposition comes across clearly, and why.",
+            description: "One or two sentences on whether that comes across clearly, and why.",
           },
           fiveSecondTest: {
             type: "string",
-            description:
-              "What a first-time visitor would be able to say about this page after five seconds on the mobile above-the-fold view.",
+            description: "What a first-time visitor would conclude from the mobile above-the-fold view.",
           },
         },
         required: [
@@ -83,71 +75,29 @@ const REPORT_TOOL: Anthropic.Tool = {
           "fiveSecondTest",
         ],
       },
-      summary: {
-        type: "string",
-        description:
-          "Three to five sentences: the state of this page as a conversion asset, what is working, and the single biggest thing holding it back. Specific to this page.",
-      },
-      topOpportunities: {
-        type: "array",
-        description:
-          "Three to five highest-leverage changes, each one sentence, phrased as an instruction. Ordered by expected impact.",
-        items: { type: "string" },
-        minItems: 3,
-        maxItems: 5,
-      },
       issues: {
         type: "array",
-        description: "Between 10 and 22 findings, most impactful first.",
-        minItems: 8,
-        maxItems: 22,
+        description: "The findings, most impactful first.",
+        minItems: 5,
+        maxItems: 18,
         items: {
           type: "object",
           properties: {
-            title: {
-              type: "string",
-              description:
-                "Short, specific statement of the problem. Not a category name. Max about 80 characters.",
-            },
+            title: { type: "string", description: "The specific problem in plain words. Max ~80 chars." },
             category: { type: "string", enum: CATEGORIES },
             severity: { type: "string", enum: ["critical", "high", "medium", "low"] },
-            platform: {
-              type: "string",
-              enum: ["desktop", "mobile", "both"],
-              description: "Where the issue exists. Use 'both' only if it genuinely affects both.",
-            },
-            location: {
-              type: "string",
-              description:
-                "Where on the page, in terms a person can find, e.g. 'hero section, primary button', 'contact form, field 4', 'footer'.",
-            },
-            observation: {
-              type: "string",
-              description:
-                "What is actually there now, with the real quoted content or the measured number.",
-            },
-            whyItMatters: {
-              type: "string",
-              description:
-                "The conversion mechanism: what the visitor does or fails to do because of this, for this specific page and audience.",
-            },
-            recommendation: {
-              type: "string",
-              description:
-                "The specific change to make. Concrete enough to implement directly without a follow-up question.",
-            },
-            exampleCopy: {
-              type: ["string", "null"],
-              description:
-                "Ready-to-use replacement wording in the page's voice, if the fix involves copy. Null otherwise. Use clearly-marked placeholders like [X years] for facts you cannot know.",
+            platform: { type: "string", enum: ["desktop", "mobile", "both"] },
+            location: { type: "string", description: "Where on the page, in terms a person can find." },
+            observation: { type: "string", description: "What is there now, quoted or measured." },
+            whyItMatters: { type: "string", description: "The conversion mechanism for this visitor." },
+            recommendation: { type: "string", description: "Exactly what to change, where, and to what." },
+            wordingFix: {
+              type: "boolean",
+              description: "True when the fix is rewriting on-page wording (headline, CTA label, form label).",
             },
             effort: { type: "string", enum: ["quick-win", "moderate", "significant"] },
             expectedImpact: { type: "string", enum: ["high", "medium", "low"] },
-            confidence: {
-              type: "string",
-              enum: ["high", "medium", "low"],
-              description: "How confident you are that this is a real problem for this page.",
-            },
+            confidence: { type: "string", enum: ["high", "medium", "low"] },
           },
           required: [
             "title",
@@ -158,7 +108,7 @@ const REPORT_TOOL: Anthropic.Tool = {
             "observation",
             "whyItMatters",
             "recommendation",
-            "exampleCopy",
+            "wordingFix",
             "effort",
             "expectedImpact",
             "confidence",
@@ -166,15 +116,15 @@ const REPORT_TOOL: Anthropic.Tool = {
         },
       },
     },
-    required: ["understanding", "summary", "topOpportunities", "issues"],
+    required: ["understanding", "issues"],
   },
 };
 
-export interface AiAnalysis {
+export interface Assessment {
   understanding: SiteUnderstanding;
-  summary: string;
-  topOpportunities: string[];
   issues: Issue[];
+  /** Indexes into `issues` whose fix is new wording, for the report step to write. */
+  wordingFixes: number[];
 }
 
 export function isAiConfigured() {
@@ -190,12 +140,13 @@ function slug(s: string, i: number) {
   return `ai-${i + 1}-${base || "finding"}`;
 }
 
-export async function analyzeWithClaude(
+/** Sonnet's CRO assessment, following prompts/cro-assessment-sop.md. */
+export async function assessPage(
   cap: CaptureResult,
   signals: HeuristicSignal[],
   targetUrl: string,
-  brief: StrategyBrief | null
-): Promise<AiAnalysis> {
+  brief: ResearchBrief | null
+): Promise<Assessment> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
 
@@ -213,48 +164,44 @@ export async function analyzeWithClaude(
   }));
 
   const userText = brief
-    ? `${buildUserPrompt(digest, targetUrl, PRIMARY)}\n\n---\nSTRATEGIST'S BRIEF\n\n${briefToPromptBlock(brief)}`
-    : buildUserPrompt(digest, targetUrl, PRIMARY);
+    ? `${buildUserPrompt(digest, targetUrl)}\n\n---\nOFF-PAGE RESEARCH BRIEF\n\n${briefToPromptBlock(brief)}`
+    : buildUserPrompt(digest, targetUrl);
 
+  // Thinking on, so Sonnet actually works through the SOP. Thinking requires
+  // tool_choice "auto" (forcing a tool is rejected), so the SOP tells it to call
+  // the tool, and a missing call is treated as a failure below.
   const response = await client.messages.create({
-    model: PRIMARY.apiModel,
-    max_tokens: PRIMARY.maxTokens,
-    system: buildSystemPrompt(PRIMARY),
-    tools: [REPORT_TOOL],
-    tool_choice: { type: "tool", name: REPORT_TOOL.name },
-    messages: [
-      {
-        role: "user",
-        content: [...images, { type: "text", text: userText }],
-      },
-    ],
+    model: ASSESSOR,
+    max_tokens: 16000,
+    thinking: { type: "adaptive" },
+    system: assessmentSop(),
+    tools: [FINDINGS_TOOL],
+    messages: [{ role: "user", content: [...images, { type: "text", text: userText }] }],
   });
 
   const toolUse = response.content.find(
-    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use"
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use" && b.name === FINDINGS_TOOL.name
   );
   if (!toolUse) {
-    throw new Error("The analysis model did not return a structured report.");
+    throw new Error(`The assessment did not return findings (stop_reason: ${response.stop_reason}).`);
   }
 
   const raw = toolUse.input as {
     understanding: SiteUnderstanding;
-    summary: string;
-    topOpportunities: string[];
-    issues: Array<Omit<Issue, "id" | "source">>;
+    issues: Array<Omit<Issue, "id" | "source" | "exampleCopy"> & { wordingFix?: boolean }>;
   };
 
-  const issues: Issue[] = (raw.issues ?? []).map((issue, i) => ({
-    ...issue,
-    category: CATEGORIES.includes(issue.category) ? issue.category : "content-clarity",
-    id: slug(issue.title ?? "", i),
-    source: "ai",
-  }));
+  const wordingFixes: number[] = [];
+  const issues: Issue[] = (raw.issues ?? []).map(({ wordingFix, ...issue }, i) => {
+    if (wordingFix) wordingFixes.push(i);
+    return {
+      ...issue,
+      category: CATEGORIES.includes(issue.category) ? issue.category : "content-clarity",
+      exampleCopy: null,
+      id: slug(issue.title ?? "", i),
+      source: "ai",
+    };
+  });
 
-  return {
-    understanding: raw.understanding,
-    summary: raw.summary ?? "",
-    topOpportunities: raw.topOpportunities ?? [],
-    issues,
-  };
+  return { understanding: raw.understanding, issues, wordingFixes };
 }

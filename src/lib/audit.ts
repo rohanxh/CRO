@@ -1,8 +1,9 @@
 import { capture, CaptureError } from "./capture";
 import { validateTargetUrl, UrlValidationError } from "./capture/url";
 import { runHeuristics } from "./heuristics";
-import { analyzeWithClaude, isAiConfigured } from "./analyze/claude";
-import { runStrategyPass, type StrategyBrief } from "./analyze/strategy";
+import { assessPage, isAiConfigured } from "./analyze/claude";
+import { runResearch, type ResearchBrief } from "./analyze/research";
+import { writeReport } from "./analyze/report";
 import { PIPELINE_LABEL } from "./analyze/models";
 import { computeScores, sortIssues } from "./score";
 import type { AuditReport, HeuristicSignal, Issue, ProgressEvent } from "./types";
@@ -74,8 +75,11 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
 
   // Kick off off-page business research NOW, so it runs concurrently with the
   // (slow) page capture instead of adding to the critical path. Best-effort.
-  const researchPromise: Promise<StrategyBrief | null> = aiEnabled
-    ? runStrategyPass(targetUrl).catch(() => null)
+  const researchPromise: Promise<ResearchBrief | null> = aiEnabled
+    ? runResearch(targetUrl).catch((err) => {
+        console.error("Research failed:", err);
+        return null;
+      })
     : Promise.resolve(null);
 
   emit("capture", "Opening the page in a real browser…", 8);
@@ -92,20 +96,37 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
   let summary: string;
   let topOpportunities: string[] = [];
   let aiError: string | null = null;
-  let brief: StrategyBrief | null = null;
+  let brief: ResearchBrief | null = null;
 
   if (aiEnabled) {
     // Research was started before capture; await whatever it produced.
     emit("strategy", "Researching the business…", 58);
     brief = await researchPromise;
 
-    emit("analyze", "Reading the page like a visitor would…", 66);
+    emit("analyze", "Assessing conversion issues…", 64);
     try {
-      const ai = await analyzeWithClaude(cap, signals, targetUrl, brief);
-      issues = ai.issues;
-      understanding = ai.understanding;
-      summary = ai.summary;
-      topOpportunities = ai.topOpportunities;
+      const assessment = await assessPage(cap, signals, targetUrl, brief);
+      issues = assessment.issues;
+      understanding = assessment.understanding;
+
+      emit("report", "Writing your report…", 86);
+      try {
+        const wrap = await writeReport(
+          cap,
+          assessment.understanding,
+          issues,
+          assessment.wordingFixes,
+          brief
+        );
+        summary = wrap.summary || understanding.clarityVerdict;
+        topOpportunities = wrap.topOpportunities;
+        issues = issues.map((i, n) => ({ ...i, exampleCopy: wrap.copyByIssue.get(n) ?? null }));
+      } catch (err) {
+        // The assessment is the valuable part; a failed wrap-up shouldn't lose it.
+        console.error("Report step failed:", err);
+        summary = understanding.clarityVerdict;
+        topOpportunities = issues.slice(0, 3).map((i) => i.recommendation);
+      }
 
       // Keep measured critical/high findings the model chose to omit.
       const covered = new Set(

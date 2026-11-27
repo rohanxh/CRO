@@ -1,40 +1,19 @@
 /**
- * The pipeline uses two models with fixed roles:
+ * Three steps, three fixed roles. There is deliberately no user-facing choice.
  *
- * - PRIMARY (Haiku) does the bulk of the work — the full structured audit. It is
- *   fast and cheap, which matters because this runs as a public lead magnet.
- * - STRATEGIST (Sonnet) runs one short "thinking" pass in between capture and the
- *   primary analysis: it looks at the page and writes a compact strategic brief
- *   that anchors Haiku's findings. It sees only the two above-the-fold views and
- *   is capped tightly, so it stays cheap.
+ * - RESEARCHER (Haiku): web-searches the business (services, reviews, local
+ *   presence) while the page is being captured. Fact-gathering, so cheap is fine.
+ * - ASSESSOR (Sonnet): the CRO judgement. Follows the SOP in
+ *   prompts/cro-assessment-sop.md and writes every finding in full.
+ * - REPORTER (Haiku): turns the assessment into the report wrap-up: executive
+ *   summary, top priorities, and replacement copy for wording fixes.
  *
- * There is deliberately no user-facing model choice.
+ * Each model string can be overridden with an env var without a code change.
  */
 
-export interface ModelProfile {
-  apiModel: string;
-  label: string;
-  maxTokens: number;
-  findingsRange: [number, number];
-  includeWorkedExample: boolean;
-}
-
-export const PRIMARY: ModelProfile = {
-  apiModel: process.env.CRO_PRIMARY_MODEL ?? "claude-haiku-4-5",
-  label: "Haiku",
-  maxTokens: 12000,
-  findingsRange: [10, 18],
-  // The worked example keeps Haiku's output grounded and consistent.
-  includeWorkedExample: true,
-};
-
-export const STRATEGIST: ModelProfile = {
-  apiModel: process.env.CRO_STRATEGIST_MODEL ?? "claude-sonnet-5",
-  label: "Sonnet",
-  maxTokens: 1500,
-  findingsRange: [0, 0],
-  includeWorkedExample: false,
-};
+export const RESEARCHER = process.env.CRO_RESEARCH_MODEL ?? "claude-haiku-4-5";
+export const ASSESSOR = process.env.CRO_ASSESS_MODEL ?? "claude-sonnet-5";
+export const REPORTER = process.env.CRO_REPORT_MODEL ?? "claude-haiku-4-5";
 
 /** Shown on the report so people know how it was produced. */
-export const PIPELINE_LABEL = "Haiku, guided by Sonnet";
+export const PIPELINE_LABEL = "Sonnet assessment, Haiku research and report";
