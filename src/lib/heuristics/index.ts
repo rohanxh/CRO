@@ -168,7 +168,7 @@ function ctaRules(bag: SignalBag, v: ViewportCapture, platform: Platform) {
         "medium",
         "Phone number is not tappable on mobile",
         "A number rendered as plain text forces visitors to copy it manually, which loses calls.",
-        `Numbers on page: ${v.trust.phoneNumbers.slice(0, 3).join(", ")} — no tel: link found.`
+        `Numbers on page: ${v.trust.phoneNumbers.slice(0, 3).join(", ")}, but no tel: link found.`
       );
     }
     if (!v.friction.stickyCta && (v.fullPageHeight > v.height * 3)) {
@@ -1056,7 +1056,7 @@ function accessibilityRules(bag: SignalBag, v: ViewportCapture) {
       "Low-contrast text is skipped rather than read, which quietly removes the arguments that would have persuaded the visitor.",
       v.contrastIssues
         .slice(0, 4)
-        .map((c) => `${c.ratio}:1 needs ${c.requiredRatio}:1 — "${c.text.slice(0, 40)}"`)
+        .map((c) => `${c.ratio}:1 needs ${c.requiredRatio}:1, "${c.text.slice(0, 40)}"`)
         .join("; ")
     );
   }

@@ -99,7 +99,7 @@ export function challengeMessage(vendor: string | null, url: string) {
   return (
     `${url} is behind ${who}, which served a security-check page instead of the site and did not clear on its own. ` +
     `No audit was produced, because auditing the check page would report on the wrong page. ` +
-    `If this is your site, allow the auditor through in your host or CDN settings — for SiteGround that is Site Tools > Security > Blocked IPs / bot protection, and for Cloudflare a WAF skip rule. ` +
+    `If this is your site, allow the auditor through in your host or CDN settings. For SiteGround that is Site Tools > Security > Blocked IPs / bot protection, and for Cloudflare a WAF skip rule. ` +
     `You can also set CRO_AUDIT_HEADERS to send a header your firewall allowlists.`
   );
 }

@@ -30,7 +30,7 @@ const BRIEF_TOOL: Anthropic.Tool = {
       localPresence: {
         type: "string",
         description:
-          "For a local or service-area business: its location(s) and local conversion factors — Google Business presence, local reviews, and how many/which locations it has. Write 'Not a local business' if it is purely online/national.",
+          "For a local or service-area business: its location(s) and local conversion factors: Google Business presence, local reviews, and how many/which locations it has. Write 'Not a local business' if it is purely online/national.",
       },
       priorities: {
         type: "array",
@@ -62,7 +62,7 @@ const SYSTEM = `You are a conversion strategist researching a business before it
 
 Use web search (2–4 focused searches) to learn:
 - What the business sells and who it serves.
-- Its reputation: find reviews (Google, Trustpilot, industry sites) and note recurring themes — what customers praise and complain about — since those are the objections and proof points the page should address.
+- Its reputation: find reviews (Google, Trustpilot, industry sites) and note recurring themes (what customers praise and complain about), since those are the objections and proof points the page should address.
 - If it is local or service-area, its location(s) and local presence (Google Business Profile, local reviews, how many locations).
 
 Be concise and factual. When done, you MUST call record_research exactly once.`;
@@ -134,7 +134,7 @@ function stripCitations(text: string): string {
 /** Renders the research as a prompt block injected into the primary analysis. */
 export function briefToPromptBlock(brief: ResearchBrief): string {
   const lines = [
-    "Before you audit the page, here is what a strategist found by researching this business off-page (services, reviews, local presence). Use it to ground your findings — especially trust/social-proof and local angles — but correct it where the on-page evidence disagrees.",
+    "Before you audit the page, here is what a strategist found by researching this business off-page (services, reviews, local presence). Use it to ground your findings, especially trust, social proof and local angles, but correct it where the on-page evidence disagrees.",
     "",
   ];
   if (brief.businessContext) lines.push(`- Business & reputation: ${brief.businessContext}`);

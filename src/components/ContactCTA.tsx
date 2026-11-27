@@ -56,11 +56,13 @@ export function ContactCTA({ report }: { report: AuditReport }) {
       <section className="panel mt-6 border-good/30 bg-good/8 p-8 text-center">
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-good/15">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="size-6 text-good">
-            <path d="m5 13 4 4L19 7" />
+            <path className="draw" d="m5 13 4 4L19 7" />
           </svg>
         </div>
-        <h2 className="mt-4 text-lg font-semibold text-ink-100">Thanks, {name.split(" ")[0] || "there"} — we&apos;ll be in touch.</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-ink-400">
+        <h2 className="mt-4 text-lg font-semibold text-ink-100">
+          Thanks, {name.split(" ")[0] || "there"}. We&apos;ll be in touch.
+        </h2>
+        <p className="mx-auto mt-2 max-w-md text-sm text-ink-300">
           We&apos;ve got your details and a copy of this audit. Someone from our team will reach out
           about turning these fixes into results.
         </p>
@@ -71,35 +73,22 @@ export function ContactCTA({ report }: { report: AuditReport }) {
   return (
     <section className="panel mt-6 overflow-hidden">
       <div className="grid gap-0 md:grid-cols-[1.1fr_1fr]">
-        <div className="border-b border-ink-700/60 bg-ink-900/40 p-8 md:border-b-0 md:border-r">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-400">
-            Want these fixed?
-          </div>
-          <h2 className="mt-2 text-xl font-semibold leading-snug text-ink-100">
-            We can turn this report into a higher-converting page.
-          </h2>
-          <p className="mt-3 text-sm leading-relaxed text-ink-400">
+        <div className="border-b border-ink-700/60 p-8 md:border-b-0 md:border-r">
+          <h2 className="text-2xl font-semibold leading-snug text-ink-100">Want these fixed?</h2>
+          <p className="mt-4 text-[15px] leading-relaxed text-ink-300">
             You&apos;ve just seen{" "}
             {criticalHigh > 0 ? (
               <>
-                <strong className="text-ink-200">{criticalHigh} high-impact issue{criticalHigh === 1 ? "" : "s"}</strong>{" "}
+                <strong className="font-semibold text-ink-100">
+                  {criticalHigh} high-impact issue{criticalHigh === 1 ? "" : "s"}
+                </strong>{" "}
                 holding this page back.
               </>
             ) : (
-              <>exactly where this page is leaking conversions.</>
+              <>exactly where this page is losing customers.</>
             )}{" "}
-            Leave your details and we&apos;ll show you how to fix them — no obligation.
+            Leave your details and we&apos;ll reply with how we would fix them. No obligation.
           </p>
-          <ul className="mt-5 space-y-2 text-sm text-ink-300">
-            {["A walkthrough of the priority fixes", "Done-for-you or done-with-you options", "A plain-English plan, not a sales pitch"].map(
-              (t) => (
-                <li key={t} className="flex items-start gap-2">
-                  <span className="mt-1 size-1.5 shrink-0 rounded-full bg-brand-400" />
-                  {t}
-                </li>
-              )
-            )}
-          </ul>
         </div>
 
         <form onSubmit={submit} className="p-8">
@@ -130,9 +119,10 @@ export function ContactCTA({ report }: { report: AuditReport }) {
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  type="tel"
                   autoComplete="tel"
                   className="cta-input"
-                  placeholder="Optional"
+                  placeholder="Best number to reach you"
                 />
               </Field>
               <Field label="Company">
@@ -141,7 +131,7 @@ export function ContactCTA({ report }: { report: AuditReport }) {
                   onChange={(e) => setCompany(e.target.value)}
                   autoComplete="organization"
                   className="cta-input"
-                  placeholder="Optional"
+                  placeholder="Your business name"
                 />
               </Field>
             </div>
@@ -151,21 +141,25 @@ export function ContactCTA({ report }: { report: AuditReport }) {
                 onChange={(e) => setMessage(e.target.value)}
                 rows={2}
                 className="cta-input resize-none"
-                placeholder="Optional"
+                placeholder="Goals for the page, deadlines, anything useful"
               />
             </Field>
           </div>
 
-          {error && <p className="mt-3 text-sm text-critical">{error}</p>}
+          {error && (
+            <p role="alert" className="mt-3 text-sm text-critical">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={state === "sending"}
-            className="mt-4 w-full rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-ink-500"
+            className="btn-primary mt-4 min-h-12 w-full px-5 text-[15px]"
           >
             {state === "sending" ? "Sending…" : "Get help fixing these"}
           </button>
-          <p className="mt-2 text-center text-[11px] text-ink-500">
+          <p className="mt-2 text-center text-xs text-ink-400">
             We&apos;ll only use your details to talk to you about this audit.
           </p>
         </form>
@@ -185,9 +179,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[11px] font-medium uppercase tracking-[0.1em] text-ink-500">
+      <span className="mb-1.5 block text-sm text-ink-300">
         {label}
-        {required && <span className="ml-0.5 text-brand-400">*</span>}
+        {required ? <span className="text-ink-400"> (required)</span> : <span className="text-ink-500"> (optional)</span>}
       </span>
       {children}
     </label>

@@ -34,13 +34,60 @@ function penalty(issue: Issue) {
 }
 
 /** Diminishing returns: the tenth medium issue should not cost as much as the first. */
-function scoreFrom(issues: Issue[]) {
+function rawScoreFrom(issues: Issue[]) {
   const penalties = issues.map(penalty).sort((a, b) => b - a);
   let total = 0;
   penalties.forEach((p, i) => {
     total += p * Math.pow(0.88, i);
   });
-  return Math.max(4, Math.min(100, Math.round(100 - total)));
+  return Math.max(4, Math.min(100, 100 - total));
+}
+
+function scoreFrom(issues: Issue[]) {
+  return Math.round(rawScoreFrom(issues));
+}
+
+const onDesktop = (i: Issue) => i.platform === "desktop" || i.platform === "both";
+const onMobile = (i: Issue) => i.platform === "mobile" || i.platform === "both";
+
+function rawOverall(issues: Issue[]) {
+  return 0.4 * rawScoreFrom(issues.filter(onDesktop)) + 0.6 * rawScoreFrom(issues.filter(onMobile));
+}
+
+/**
+ * Points each fix is worth, in the order given (the report's priority order):
+ * fix them one after another and re-score after each. Because of diminishing
+ * returns the order matters, so the numbers mean "if you work down the list".
+ * Whole numbers are shared out by largest remainder so they add up exactly to
+ * 100 minus the overall score: fixing everything listed is what reaches 100.
+ */
+export function pointsPerFix(issues: Issue[], overallScore: number): number[] {
+  const gains: number[] = [];
+  let remaining = issues;
+  let before = rawOverall(remaining);
+  for (let i = 0; i < issues.length; i++) {
+    remaining = issues.slice(i + 1);
+    const after = rawOverall(remaining);
+    gains.push(Math.max(0, after - before));
+    before = after;
+  }
+
+  const gap = Math.max(0, 100 - overallScore);
+  const sum = gains.reduce((a, b) => a + b, 0);
+  if (gap === 0 || sum === 0) return issues.map(() => 0);
+
+  const exact = gains.map((g) => (g / sum) * gap);
+  const points = exact.map(Math.floor);
+  let short = gap - points.reduce((a, b) => a + b, 0);
+  const byRemainder = exact
+    .map((e, i) => ({ i, r: e - Math.floor(e) }))
+    .sort((a, b) => b.r - a.r);
+  for (const { i } of byRemainder) {
+    if (short <= 0) break;
+    points[i] += 1;
+    short -= 1;
+  }
+  return points;
 }
 
 export function computeScores(issues: Issue[]) {

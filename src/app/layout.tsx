@@ -1,30 +1,35 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { IBM_Plex_Sans, Unbounded } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const unbounded = Unbounded({
+  variable: "--font-unbounded",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const plex = IBM_Plex_Sans({
+  variable: "--font-plex",
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
-  title: "CRO Audit — find what is costing you conversions",
+  title: "Free website conversion audit",
   description:
-    "Paste a URL. A real browser loads the page on desktop and mobile, measures it, and returns a prioritised list of conversion fixes.",
+    "Paste your page. It is loaded on a phone and a desktop in a real browser, checked against your reviews and local listings, and you get a prioritised list of what to fix.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-ink-950 text-ink-100">{children}</body>
+    <html lang="en" className={`${unbounded.variable} ${plex.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col text-ink-100">
+        <div className="sky" aria-hidden="true">
+          <div className="stars stars-far" />
+          <div className="stars stars-mid" />
+          <div className="stars stars-near" />
+        </div>
+        {children}
+      </body>
     </html>
   );
 }

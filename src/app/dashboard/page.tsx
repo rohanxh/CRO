@@ -96,20 +96,28 @@ function Login({ onSuccess }: { onSuccess: () => void }) {
     <Centered>
       <form onSubmit={submit} className="panel w-full max-w-sm p-8">
         <h1 className="text-lg font-semibold text-ink-100">Admin dashboard</h1>
-        <p className="mt-1 text-sm text-ink-400">Enter the admin password to continue.</p>
+        <p className="mt-1 text-sm text-ink-300">Enter the admin password to continue.</p>
+        <label htmlFor="admin-password" className="mt-5 mb-1.5 block text-sm text-ink-300">
+          Password
+        </label>
         <input
+          id="admin-password"
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoFocus
-          placeholder="Password"
-          className="cta-input mt-5"
+          autoComplete="current-password"
+          className="cta-input"
         />
-        {error && <p className="mt-3 text-sm text-critical">{error}</p>}
+        {error && (
+          <p role="alert" className="mt-3 text-sm text-critical">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={busy || !password}
-          className="mt-4 w-full rounded-lg bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-ink-500"
+          className="btn-primary mt-4 min-h-12 w-full px-5 text-sm"
         >
           {busy ? "Checking…" : "Log in"}
         </button>
@@ -122,6 +130,7 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
   // Bumped to trigger a reload; the fetch lives in the effect so it stays out of
   // synchronous effect execution (React's set-state-in-effect rule).
@@ -136,10 +145,22 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
           if (active) onLogout();
           return;
         }
+        if (!res.ok) {
+          // Usually the database: a missing or wrong DATABASE_URL lands here,
+          // and must not be shown as "no leads yet".
+          if (active)
+            setLoadError(
+              `Leads could not be loaded (HTTP ${res.status}). Check the database connection (DATABASE_URL) in your host's settings, then refresh.`
+            );
+          return;
+        }
         const d = (await res.json()) as { stats: Stats; leads: Lead[] };
         if (!active) return;
+        setLoadError(null);
         setStats(d.stats);
         setLeads(d.leads);
+      } catch {
+        if (active) setLoadError("Leads could not be loaded: the server did not respond. Check your connection, then refresh.");
       } finally {
         if (active) setLoading(false);
       }
@@ -155,49 +176,50 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
+    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-400">
-            Admin
-          </div>
+          <p className="text-sm text-ink-400">Admin</p>
           <h1 className="mt-1 text-2xl font-semibold text-ink-100">Leads dashboard</h1>
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => {
               setLoading(true);
               setReloadTick((t) => t + 1);
             }}
-            className="rounded-lg border border-ink-600 px-3 py-2 text-xs font-medium text-ink-300 transition-colors hover:border-ink-500 hover:text-ink-100"
+            className="btn-quiet min-h-11 px-4 text-sm"
           >
             Refresh
           </button>
-          <button
-            onClick={logout}
-            className="rounded-lg border border-ink-600 px-3 py-2 text-xs font-medium text-ink-300 transition-colors hover:border-ink-500 hover:text-ink-100"
-          >
+          <button type="button" onClick={logout} className="btn-quiet min-h-11 px-4 text-sm">
             Log out
           </button>
         </div>
       </header>
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">
-        <StatCard label="Total leads" value={stats?.total ?? "—"} />
-        <StatCard label="Last 7 days" value={stats?.last7 ?? "—"} accent />
-        <StatCard label="Sent to Go High Level" value={stats?.forwarded ?? "—"} />
+        <StatCard label="Total leads" value={stats?.total ?? "…"} />
+        <StatCard label="Last 7 days" value={stats?.last7 ?? "…"} />
+        <StatCard label="Sent to Go High Level" value={stats?.forwarded ?? "…"} />
       </div>
 
       <WebhookSettings />
 
       <section className="panel mt-8 overflow-hidden">
         <div className="flex items-center justify-between border-b border-ink-700/60 px-5 py-4">
-          <h2 className="text-sm font-semibold text-ink-100">Leads</h2>
-          <span className="text-xs text-ink-500">{leads.length} shown</span>
+          <h2 className="text-base font-semibold text-ink-100">Leads</h2>
+          <span className="text-sm text-ink-400">{leads.length} shown</span>
         </div>
 
         {loading ? (
-          <div className="p-10 text-center text-sm text-ink-400">Loading…</div>
+          <div className="p-10 text-center text-sm text-ink-300">Loading leads…</div>
+        ) : loadError ? (
+          <div role="alert" className="p-10 text-center text-sm leading-relaxed text-ink-200">
+            <span className="font-semibold text-critical">Something went wrong. </span>
+            {loadError}
+          </div>
         ) : leads.length === 0 ? (
           <div className="p-10 text-center text-sm text-ink-400">
             No leads yet. They&apos;ll appear here as people submit the contact form at the end of an audit.
@@ -206,7 +228,7 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-ink-700 text-left text-[11px] uppercase tracking-wider text-ink-500">
+                <tr className="border-b border-ink-700 text-left text-xs text-ink-400">
                   <th className="px-5 py-3 font-medium">When</th>
                   <th className="px-5 py-3 font-medium">Name</th>
                   <th className="px-5 py-3 font-medium">Contact</th>
@@ -218,53 +240,55 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
               <tbody className="divide-y divide-ink-800">
                 {leads.map((l) => (
                   <Fragment key={l.id}>
-                    <tr
-                      onClick={() => setExpanded(expanded === l.id ? null : l.id)}
-                      className="cursor-pointer transition-colors hover:bg-ink-850/60"
-                    >
-                      <td className="whitespace-nowrap px-5 py-3 text-ink-400">
+                    <tr className="transition-colors hover:bg-ink-850/60">
+                      <td className="whitespace-nowrap px-5 py-3 text-ink-300">
                         {new Date(l.createdAt).toLocaleString()}
                       </td>
                       <td className="px-5 py-3 font-medium text-ink-100">
                         {l.name}
-                        {l.company && <span className="block text-xs text-ink-500">{l.company}</span>}
+                        {l.company && <span className="block text-xs font-normal text-ink-400">{l.company}</span>}
+                        {l.message && (
+                          <button
+                            type="button"
+                            aria-expanded={expanded === l.id}
+                            onClick={() => setExpanded(expanded === l.id ? null : l.id)}
+                            className="mt-1 block text-xs font-normal text-brand-400 underline-offset-2 hover:underline"
+                          >
+                            {expanded === l.id ? "Hide message" : "Show message"}
+                          </button>
+                        )}
                       </td>
                       <td className="px-5 py-3 text-ink-300">
-                        <a
-                          href={`mailto:${l.email}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-brand-400 hover:underline"
-                        >
+                        <a href={`mailto:${l.email}`} className="text-brand-400 underline-offset-2 hover:underline">
                           {l.email}
                         </a>
-                        {l.phone && <span className="block text-xs text-ink-500">{l.phone}</span>}
+                        {l.phone && <span className="block text-xs text-ink-400">{l.phone}</span>}
                       </td>
-                      <td className="max-w-[220px] truncate px-5 py-3 text-ink-400">
+                      <td className="max-w-[220px] truncate px-5 py-3 text-ink-300">
                         {l.auditUrl ? (
                           <a
                             href={l.auditUrl}
                             target="_blank"
                             rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="hover:text-ink-200 hover:underline"
+                            className="underline-offset-2 hover:text-ink-100 hover:underline"
                           >
                             {l.auditUrl}
                           </a>
                         ) : (
-                          "—"
+                          <span className="text-ink-400">None</span>
                         )}
                       </td>
-                      <td className="px-5 py-3 text-ink-300">{l.auditScore ?? "—"}</td>
+                      <td className="px-5 py-3 text-ink-300">
+                        {l.auditScore ?? <span className="text-ink-400">None</span>}
+                      </td>
                       <td className="px-5 py-3">
                         <ForwardBadge lead={l} />
                       </td>
                     </tr>
                     {expanded === l.id && l.message && (
-                      <tr className="bg-ink-900/50">
-                        <td colSpan={6} className="px-5 py-3 text-sm text-ink-300">
-                          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-500">
-                            Message:{" "}
-                          </span>
+                      <tr className="bg-ink-850/60">
+                        <td colSpan={6} className="px-5 py-3 text-sm text-ink-200">
+                          <span className="text-xs font-medium text-ink-400">Message: </span>
                           {l.message}
                         </td>
                       </tr>
@@ -276,7 +300,7 @@ function DashboardBody({ onLogout }: { onLogout: () => void }) {
           </div>
         )}
       </section>
-    </div>
+    </main>
   );
 }
 
@@ -289,7 +313,7 @@ function ForwardBadge({ lead }: { lead: Lead }) {
         Failed
       </span>
     );
-  return <span className="chip border-ink-600 text-ink-500">—</span>;
+  return <span className="chip border-ink-600 text-ink-400">Not sent</span>;
 }
 
 function WebhookSettings() {
@@ -351,31 +375,38 @@ function WebhookSettings() {
 
   return (
     <section className="panel p-6">
-      <h2 className="text-sm font-semibold text-ink-100">Go High Level webhook</h2>
+      <h2 className="text-base font-semibold text-ink-100">Go High Level webhook</h2>
       <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-400">
         Paste an inbound webhook URL from Go High Level (Automation → Workflows → add a{" "}
         <em>Inbound Webhook</em> trigger, then copy its URL). Every new lead is sent there as JSON with
         name, email, phone, company, the audited page and its score.
       </p>
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <label htmlFor="ghl-webhook" className="mt-4 mb-1.5 block text-sm text-ink-300">
+        Webhook URL
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
         <input
+          id="ghl-webhook"
+          type="url"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://services.leadconnectorhq.com/hooks/…"
-          className="cta-input flex-1"
+          className="cta-input min-h-11 flex-1"
         />
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={save}
             disabled={state === "saving" || url === initial}
-            className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-ink-700 disabled:text-ink-500"
+            className="btn-primary min-h-11 px-5 text-sm"
           >
             {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : "Save"}
           </button>
           <button
+            type="button"
             onClick={test}
             disabled={testState === "testing" || !url}
-            className="rounded-lg border border-ink-600 px-4 py-2.5 text-sm font-medium text-ink-200 transition-colors hover:border-ink-500 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-quiet min-h-11 px-4 text-sm"
           >
             {testState === "testing" ? "Sending…" : "Send test"}
           </button>
@@ -394,21 +425,11 @@ function WebhookSettings() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number | string;
-  accent?: boolean;
-}) {
+function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="panel p-5">
-      <div className="text-[11px] font-medium uppercase tracking-[0.12em] text-ink-500">{label}</div>
-      <div className={`mt-2 text-3xl font-semibold ${accent ? "text-brand-400" : "text-ink-100"}`}>
-        {value}
-      </div>
+      <div className="text-sm text-ink-400">{label}</div>
+      <div className="mt-2 font-display text-3xl font-semibold tabular-nums text-ink-100">{value}</div>
     </div>
   );
 }

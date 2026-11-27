@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       message: "This is a test submission from the CRO audit dashboard.",
       auditUrl: "https://example.com",
       auditScore: 72,
-      source: "CRO audit tool — webhook test",
+      source: "CRO audit tool (webhook test)",
     }),
     test: true,
   };

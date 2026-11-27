@@ -1,4 +1,25 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import type { Issue, Platform, Severity } from "@/lib/types";
+
+/** Counts from 0 to `target` once (ease-out); jumps straight there under reduced motion. */
+function useCountUp(target: number, ms = 1100) {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = reduce ? 1 : Math.min(1, (now - start) / ms);
+      setValue(Math.round(target * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, ms]);
+  return value;
+}
 
 const SEVERITY_STYLE: Record<Severity, string> = {
   critical: "bg-critical/12 text-critical border-critical/35",
@@ -7,8 +28,15 @@ const SEVERITY_STYLE: Record<Severity, string> = {
   low: "bg-low/12 text-low border-low/35",
 };
 
+const SEVERITY_LABEL: Record<Severity, string> = {
+  critical: "Critical",
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
 export function SeverityChip({ severity }: { severity: Severity }) {
-  return <span className={`chip ${SEVERITY_STYLE[severity]}`}>{severity}</span>;
+  return <span className={`chip ${SEVERITY_STYLE[severity]}`}>{SEVERITY_LABEL[severity]}</span>;
 }
 
 const PLATFORM_LABEL: Record<Platform, string> = {
@@ -78,18 +106,27 @@ export function ScoreDial({
   const stroke = size >= 120 ? 10 : 7;
   const r = (size - stroke) / 2;
   const circumference = 2 * Math.PI * r;
-  const dash = (score / 100) * circumference;
+  const shown = useCountUp(score);
+  const dash = (shown / 100) * circumference;
   const color = scoreColor(score);
+  // The headline score is drawn as a ringed planet (see .orbit in globals.css).
+  const ringed = size >= 120;
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="-rotate-90">
+      <div
+        role="img"
+        aria-label={`${label} score: ${score} out of 100`}
+        className={`relative ${ringed ? "orbit-host mx-12 my-3" : ""}`}
+        style={{ width: size, height: size }}
+      >
+        {ringed && <div aria-hidden="true" className="orbit" style={{ color }} />}
+        <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
           <circle
             cx={size / 2}
             cy={size / 2}
             r={r}
-            fill="none"
+            fill={ringed ? "var(--color-ink-850)" : "none"}
             stroke="var(--color-ink-700)"
             strokeWidth={stroke}
           />
@@ -102,22 +139,23 @@ export function ScoreDial({
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={`${dash} ${circumference}`}
-            style={{ transition: "stroke-dasharray 900ms cubic-bezier(0.16,1,0.3,1)" }}
           />
         </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <div aria-hidden="true" className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className="font-semibold tabular-nums leading-none"
-            style={{ color, fontSize: size * 0.3 }}
+            className="font-display font-semibold tabular-nums leading-none"
+            style={{ color, fontSize: size * 0.28 }}
           >
-            {score}
+            {shown}
           </span>
-          {size >= 120 && <span className="text-[10px] uppercase tracking-widest text-ink-500 mt-1">/ 100</span>}
         </div>
       </div>
       <div className="text-center">
-        <div className="text-xs font-medium text-ink-200">{label}</div>
-        {sublabel && <div className="text-[11px] text-ink-500">{sublabel}</div>}
+        <div className="text-sm font-medium text-ink-200">
+          {label}
+          <span className="font-normal text-ink-400"> / 100</span>
+        </div>
+        {sublabel && <div className="text-xs text-ink-400">{sublabel}</div>}
       </div>
     </div>
   );

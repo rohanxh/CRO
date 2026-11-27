@@ -5,7 +5,7 @@ import { assessPage, isAiConfigured } from "./analyze/claude";
 import { runResearch, type ResearchBrief } from "./analyze/research";
 import { writeReport } from "./analyze/report";
 import { PIPELINE_LABEL } from "./analyze/models";
-import { computeScores, sortIssues } from "./score";
+import { computeScores, pointsPerFix, sortIssues } from "./score";
 import type { AuditReport, HeuristicSignal, Issue, ProgressEvent } from "./types";
 
 export { CaptureError, UrlValidationError };
@@ -154,8 +154,10 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
   }
 
   emit("score", "Scoring and prioritising…", 92);
-  const sorted = sortIssues(issues);
-  const scores = computeScores(sorted);
+  const ordered = sortIssues(issues);
+  const scores = computeScores(ordered);
+  const points = pointsPerFix(ordered, scores.overallScore);
+  const sorted = ordered.map((issue, i) => ({ ...issue, points: points[i] }));
 
   return {
     url: targetUrl,

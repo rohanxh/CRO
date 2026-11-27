@@ -1,30 +1,47 @@
 @import "tailwindcss";
 
+/*
+ * Direction: quiet deep space. A near-black sky, static stars that only move
+ * with the visitor's scroll, and one lit planet horizon on the landing page.
+ * Dark is the identity here (the user asked for space), not a "tech" default.
+ *
+ * Palette: one neutral ramp + one accent ("atmosphere blue", the colour of the
+ * planet's rim) used only for things you can act on. Severity colours are
+ * functional status, not palette. Every text token below passes WCAG AA (4.5:1)
+ * on both the sky and the panel surface.
+ */
 @theme {
-  --color-ink-950: #07090f;
-  --color-ink-900: #0b0e16;
-  --color-ink-850: #10141f;
-  --color-ink-800: #161b28;
-  --color-ink-700: #1f2635;
-  --color-ink-600: #2c3446;
-  --color-ink-500: #4a5568;
-  --color-ink-400: #6b7688;
-  --color-ink-300: #97a1b2;
-  --color-ink-200: #c3cad6;
-  --color-ink-100: #e6eaf1;
+  --color-ink-950: #05070d; /* sky */
+  --color-ink-900: #0b0f1a; /* panel surface */
+  --color-ink-850: #10151f; /* inputs, inner wells */
+  --color-ink-800: #161c2a;
+  --color-ink-700: #222a3b; /* hairlines */
+  --color-ink-600: #36405a; /* strong borders (never text) */
+  --color-ink-500: #8b95a9; /* quiet text, 6.4:1 on panel */
+  --color-ink-400: #a4adbf; /* muted text */
+  --color-ink-300: #bec6d4;
+  --color-ink-200: #d7dde7;
+  --color-ink-100: #eef1f6;
 
-  --color-brand-400: #8b93ff;
-  --color-brand-500: #6c73f5;
-  --color-brand-600: #565de0;
+  --color-brand-400: #a6d6ff; /* accent text and links */
+  --color-brand-500: #78bdff; /* primary action surface, dark text on it */
+  --color-brand-600: #9ccfff; /* hover: lights up, as if lit further */
 
-  --color-critical: #ff5c5c;
-  --color-high: #ff9f45;
-  --color-medium: #f5d547;
-  --color-low: #6bb5ff;
-  --color-good: #3ddc97;
+  --color-critical: #ff6b6b;
+  --color-high: #ffa552;
+  --color-medium: #f2d45c;
+  --color-low: #aab3c5; /* polish: neutral, so blue always means "act here" */
+  --color-good: #4fdca0;
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* Unbounded: wide geometric lettering with a mission-patch feel, for
+     headlines and scores only. IBM Plex Sans: an engineered, instrument-panel
+     voice that stays readable at the small sizes the findings use. */
+  --font-display: var(--font-unbounded), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+
+  --radius-tag: 4px;
+  --radius-control: 8px;
+  --radius-panel: 16px;
 }
 
 @layer base {
@@ -36,50 +53,324 @@
 
   body {
     font-family: var(--font-sans);
+    overflow-x: clip;
+  }
+
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 
   ::selection {
     background: var(--color-brand-500);
-    color: #fff;
+    color: var(--color-ink-950);
+  }
+
+  /* Controls say they are controls. */
+  a[href],
+  button:not(:disabled),
+  summary,
+  select,
+  label[for],
+  [role="button"] {
+    cursor: pointer;
+  }
+  :disabled {
+    cursor: not-allowed;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand-400);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation: none !important;
+      transition: none !important;
+    }
   }
 }
 
 @layer components {
   .panel {
-    background: color-mix(in srgb, var(--color-ink-900) 88%, transparent);
+    background: var(--color-ink-900);
     border: 1px solid var(--color-ink-700);
-    border-radius: 14px;
+    border-radius: var(--radius-panel);
   }
 
+  /* Status tags: small and square-ish so they read as labels, not buttons. */
   .chip {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    padding: 0.15rem 0.45rem;
+    border-radius: var(--radius-tag);
+    font-size: 0.75rem;
+    font-weight: 500;
     border: 1px solid transparent;
     white-space: nowrap;
   }
 
   .cta-input {
     width: 100%;
-    border-radius: 0.5rem;
+    border-radius: var(--radius-control);
     border: 1px solid var(--color-ink-600);
     background: var(--color-ink-850);
-    padding: 0.55rem 0.75rem;
-    font-size: 0.875rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9375rem;
     color: var(--color-ink-100);
-    outline: none;
   }
   .cta-input::placeholder {
-    color: var(--color-ink-600);
+    color: var(--color-ink-500);
   }
-  .cta-input:focus {
+  .cta-input:focus-visible {
+    outline-offset: 0;
     border-color: var(--color-brand-500);
+  }
+
+  /* Primary action: the only lit surface on a screen. */
+  .btn-primary {
+    border-radius: var(--radius-control);
+    background: var(--color-brand-500);
+    color: var(--color-ink-950);
+    font-weight: 600;
+    transition: background-color 150ms, transform 150ms;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-brand-600);
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn-primary:disabled {
+    background: var(--color-ink-700);
+    color: var(--color-ink-400);
+  }
+
+  .btn-quiet {
+    border-radius: var(--radius-control);
+    border: 1px solid var(--color-ink-600);
+    color: var(--color-ink-200);
+    font-weight: 500;
+    transition: border-color 150ms, color 150ms, transform 150ms;
+  }
+  .btn-quiet:hover:not(:disabled) {
+    border-color: var(--color-ink-400);
+    color: var(--color-ink-100);
+  }
+  .btn-quiet:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .btn-quiet:disabled {
+    opacity: 0.55;
+  }
+}
+
+/* ---------- Space backdrop ---------- */
+
+/* Fixed sky behind everything. Three star layers with different tile sizes
+   (not multiples of each other) so the dots never line up into a grid. */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--color-ink-950);
+  overflow: hidden;
+}
+.stars {
+  position: absolute;
+  inset: 0 0 -240px 0; /* extra height so scroll depth never exposes an edge */
+}
+.stars-far {
+  opacity: 0.55;
+  background-size: 263px 263px;
+  background-image:
+    radial-gradient(1px 1px at 18px 31px, #fff, transparent),
+    radial-gradient(1px 1px at 92px 174px, #fff, transparent),
+    radial-gradient(1px 1px at 141px 66px, #dbe9ff, transparent),
+    radial-gradient(1px 1px at 207px 222px, #fff, transparent),
+    radial-gradient(1px 1px at 233px 109px, #fff, transparent),
+    radial-gradient(1px 1px at 57px 247px, #dbe9ff, transparent),
+    radial-gradient(1px 1px at 176px 12px, #fff, transparent);
+}
+.stars-mid {
+  opacity: 0.7;
+  background-size: 419px 419px;
+  background-image:
+    radial-gradient(1.5px 1.5px at 44px 300px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 311px 57px, #e8f1ff, transparent),
+    radial-gradient(1.5px 1.5px at 198px 388px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 371px 241px, #fff, transparent),
+    radial-gradient(1.5px 1.5px at 129px 143px, #e8f1ff, transparent);
+}
+.stars-near {
+  opacity: 0.9;
+  background-size: 677px 677px;
+  background-image:
+    radial-gradient(2px 2px at 103px 452px, #fff, transparent),
+    radial-gradient(2px 2px at 489px 118px, #fff, transparent),
+    radial-gradient(2px 2px at 612px 563px, #f3f7ff, transparent);
+}
+
+/* Depth comes from the visitor's own scroll: nearer layers move further. No
+   autonomous loop, so nothing moves unless the visitor does. Browsers without
+   scroll timelines simply keep a static sky. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .stars-mid {
+      animation: depth-mid linear both;
+      animation-timeline: scroll(root);
+    }
+    .stars-near {
+      animation: depth-near linear both;
+      animation-timeline: scroll(root);
+    }
+  }
+}
+@keyframes depth-mid {
+  to {
+    transform: translateY(-90px);
+  }
+}
+@keyframes depth-near {
+  to {
+    transform: translateY(-220px);
+  }
+}
+
+/* The one glow on the site: a planet whose lit atmosphere is the horizon the
+   landing form sits above. Shaded as a sphere: atmospheric light just inside the
+   rim (inset glow), falling off into the dark surface below. */
+.planet {
+  position: absolute;
+  left: 50%;
+  width: max(240vw, 1800px);
+  aspect-ratio: 1;
+  translate: -50% 0; /* kept off `transform` so the 3D tilt below can own it */
+  transform-origin: 50% 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 55% 14% at 50% 0%, #10203a 0%, transparent 100%),
+    radial-gradient(ellipse 80% 40% at 50% 0%, #0a1324 0%, transparent 100%),
+    #06090f;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-brand-400) 55%, transparent),
+    0 -24px 80px -36px color-mix(in srgb, var(--color-brand-500) 60%, transparent),
+    inset 0 22px 50px -24px color-mix(in srgb, var(--color-brand-500) 45%, transparent);
+  pointer-events: none;
+}
+
+/* Scrolling tilts the planet away in real perspective, hinged on the horizon,
+   so the curve flattens as if descending toward the surface. Driven only by
+   the visitor's scroll; static where scroll timelines are unsupported. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Entrance: the planet rises into place once, establishing the horizon. */
+  .planet {
+    animation: rise 1.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @supports (animation-timeline: scroll()) {
+    .planet {
+      animation:
+        rise 1.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+        descend linear both;
+      animation-timeline: auto, scroll(root);
+      animation-range: normal, 0 700px;
+    }
+  }
+}
+@keyframes rise {
+  from {
+    translate: -50% 160px;
+    opacity: 0;
+  }
+}
+@keyframes descend {
+  from {
+    transform: perspective(1400px) rotateX(0deg);
+  }
+  to {
+    transform: perspective(1400px) rotateX(30deg);
+  }
+}
+
+/* Report: the overall score as a ringed planet. A real 3D plane, so the ring
+   passes behind the score at the top and in front of it at the bottom. Static. */
+.orbit-host {
+  perspective: 700px;
+  transform-style: preserve-3d;
+}
+.orbit {
+  position: absolute;
+  inset: -36%;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.55;
+  transform: rotateX(77deg) rotateY(-14deg);
+  pointer-events: none;
+}
+
+/* ---------- Motion ----------
+   Each animation runs once, has a job, and is written so the element's resting
+   style is the visible end state: with reduced motion (animations disabled
+   globally above) everything simply appears. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Report: the ring swings into its tilt as the score counts up. */
+  .orbit {
+    animation: ring-in 1.1s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Priority list appears in reading order (set --i per item). */
+  .in-order > * {
+    animation: settle 0.5s calc(0.45s + var(--i, 0) * 0.11s) ease-out both;
+  }
+
+  /* A finished progress step confirms itself. */
+  .pop {
+    animation: pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* The success tick draws itself. */
+  .draw {
+    stroke-dasharray: 24;
+    animation: draw 0.5s 0.1s ease-out both;
+  }
+
+  /* Landing items surface as they scroll into view. */
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: settle linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
+}
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: rotateX(77deg) rotateY(-14deg) rotateZ(-70deg) scale(0.6);
+  }
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 24;
   }
 }
 
@@ -88,7 +379,6 @@
   scrollbar-width: thin;
   scrollbar-color: var(--color-ink-600) transparent;
 }
-
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -98,34 +388,4 @@
   border-radius: 999px;
   border: 3px solid transparent;
   background-clip: content-box;
-}
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-500);
-  background-clip: content-box;
-}
-
-@keyframes shimmer {
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-.shimmer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-brand-400) 22%, transparent),
-    transparent
-  );
-  animation: shimmer 1.6s infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .shimmer::after {
-    animation: none;
-  }
 }

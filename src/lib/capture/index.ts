@@ -126,7 +126,7 @@ function attachCollectors(page: Page, targetHost: string) {
   page.on("requestfailed", (req) => {
     if (stats.failedRequests.length < 20) {
       stats.failedRequests.push(
-        `${req.method()} ${req.url().slice(0, 160)} — ${req.failure()?.errorText ?? "failed"}`
+        `${req.method()} ${req.url().slice(0, 160)}: ${req.failure()?.errorText ?? "failed"}`
       );
     }
   });

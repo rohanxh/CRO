@@ -52,14 +52,12 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
   const host = safeHost(report.finalUrl || report.url);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-5 pb-24 pt-8 sm:px-8">
+    <main className="mx-auto w-full max-w-6xl px-5 pb-24 pt-10 sm:px-8">
       <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-brand-400">
-            Conversion audit
-          </div>
-          <h1 className="mt-1 truncate text-2xl font-semibold text-ink-100 sm:text-3xl">{host}</h1>
-          <p className="mt-1 truncate text-xs text-ink-500">
+          <p className="text-sm text-ink-400">Conversion audit</p>
+          <h1 className="mt-1 truncate text-2xl font-semibold text-ink-100 sm:text-4xl">{host}</h1>
+          <p className="mt-2 truncate text-xs text-ink-400">
             {report.finalUrl} · {new Date(report.generatedAt).toLocaleString()} ·{" "}
             {(report.durationMs / 1000).toFixed(1)}s
             {report.aiEnabled && report.model?.label ? ` · analysed by ${report.model.label}` : ""}
@@ -69,14 +67,14 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg border border-ink-600 px-3 py-2 text-xs font-medium text-ink-300 transition-colors hover:border-ink-500 hover:text-ink-100"
+            className="btn-quiet min-h-11 px-4 text-sm"
           >
             Export PDF
           </button>
           <button
             type="button"
             onClick={onReset}
-            className="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-brand-600"
+            className="btn-primary min-h-11 px-4 text-sm"
           >
             Audit another page
           </button>
@@ -84,7 +82,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
       </header>
 
       {report.aiError && (
-        <div className="panel mb-6 border-high/30 bg-high/8 p-4 text-sm text-ink-200">
+        <div role="status" className="panel mb-6 border-high/45 p-4 text-sm text-ink-200">
           <strong className="font-semibold text-high">Limited report.</strong> Page analysis did not
           run, so this covers measured technical and structural checks only. {report.aiError}
         </div>
@@ -93,9 +91,9 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
       {/* Scores */}
       <section className="panel mb-6 p-6">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center">
-          <div className="flex shrink-0 items-center gap-6">
+          <div className="flex shrink-0 flex-col items-center gap-6 sm:flex-row">
             <ScoreDial score={report.overallScore} label="Overall" sublabel={band.label} />
-            <div className="flex flex-col gap-4">
+            <div className="flex gap-8 sm:flex-col sm:gap-4">
               <ScoreDial score={report.desktopScore} size={76} label="Desktop" />
               <ScoreDial score={report.mobileScore} size={76} label="Mobile" />
             </div>
@@ -115,6 +113,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
             </div>
           </div>
         </div>
+        <PathTo100 score={report.overallScore} issues={report.issues} />
       </section>
 
       <div className="mb-6 grid gap-6 lg:grid-cols-5">
@@ -154,10 +153,14 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
         >
           <SectionTitle>Fix these first</SectionTitle>
           {report.topOpportunities.length > 0 ? (
-            <ol className="mt-4 space-y-3">
+            <ol className="in-order mt-4 space-y-3">
               {report.topOpportunities.map((op, i) => (
-                <li key={i} className="flex gap-3 text-sm leading-relaxed text-ink-200">
-                  <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-[11px] font-semibold text-brand-400">
+                <li
+                  key={i}
+                  style={{ "--i": i } as React.CSSProperties}
+                  className="flex gap-3 text-sm leading-relaxed text-ink-200"
+                >
+                  <span className="mt-0.5 w-5 shrink-0 font-display text-sm font-semibold text-brand-400">
                     {i + 1}
                   </span>
                   {op}
@@ -166,7 +169,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
             </ol>
           ) : (
             <p className="mt-4 text-sm text-ink-400">
-              See the prioritised issue list below — the top items are ordered by expected impact.
+              The list below is already in order of expected impact, so start at the top.
             </p>
           )}
 
@@ -187,9 +190,9 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
                   />
                 ))}
             </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
-              Bar length is that area&apos;s share of the total conversion damage; colour is its
-              most severe issue.
+            <p className="mt-3 text-xs leading-relaxed text-ink-400">
+              Bar length is that area&apos;s share of the total conversion damage. Colour is its most
+              severe issue.
             </p>
           </div>
         </section>
@@ -199,9 +202,9 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
       {report.research && (
         <section className="panel mb-6 p-6">
           <SectionTitle>What we found about the business</SectionTitle>
-          <p className="mt-1 text-[11px] text-ink-500">
-            Researched beyond the page — services, reputation and reviews, and local presence — so the
-            findings fit the real business, not just what this page happens to say.
+          <p className="mt-1 text-sm text-ink-400">
+            Looked up beyond the page (services, reviews and local listings) so the findings fit the
+            real business, not only what this page happens to say.
           </p>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {report.research.businessContext && (
@@ -226,7 +229,9 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
             <img
               src={`data:image/jpeg;base64,${report.screenshots.desktopFold}`}
               alt="Desktop above-the-fold screenshot"
-              className="w-full rounded-lg border border-ink-700"
+              width={1440}
+              height={900}
+              className="h-auto w-full rounded-lg border border-ink-700"
             />
           </figure>
           <figure className="mx-auto w-full max-w-[240px]">
@@ -236,7 +241,9 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
             <img
               src={`data:image/jpeg;base64,${report.screenshots.mobileFold}`}
               alt="Mobile above-the-fold screenshot"
-              className="w-full rounded-lg border border-ink-700"
+              width={390}
+              height={844}
+              className="h-auto w-full rounded-lg border border-ink-700"
             />
           </figure>
         </div>
@@ -248,7 +255,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[620px] text-sm">
             <thead>
-              <tr className="border-b border-ink-700 text-left text-[11px] uppercase tracking-wider text-ink-500">
+              <tr className="border-b border-ink-700 text-left text-xs text-ink-400">
                 <th className="pb-2 font-medium">Metric</th>
                 <th className="pb-2 font-medium">Desktop</th>
                 <th className="pb-2 font-medium">Mobile</th>
@@ -331,7 +338,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
           <div>
             <SectionTitle>
               Everything to fix
-              <span className="ml-2 text-ink-500">
+              <span className="ml-2 text-ink-400">
                 ({filtered.length}
                 {filtered.length !== report.issues.length && ` of ${report.issues.length}`})
               </span>
@@ -339,6 +346,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <FilterGroup
+              label="Filter by screen"
               value={platformFilter}
               onChange={setPlatformFilter}
               options={[
@@ -348,6 +356,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
               ]}
             />
             <FilterGroup
+              label="Filter by severity"
               value={severityFilter}
               onChange={setSeverityFilter}
               options={[
@@ -361,7 +370,8 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value as Category | "all")}
-              className="rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-xs text-ink-200 outline-none focus:border-brand-500"
+              aria-label="Filter by area"
+              className="min-h-11 rounded-lg border border-ink-600 bg-ink-850 px-3 text-sm text-ink-200"
             >
               <option value="all">All areas</option>
               {usedCategories.map((c) => (
@@ -370,7 +380,7 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
                 </option>
               ))}
             </select>
-            <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink-600 bg-ink-850 px-2.5 py-1.5 text-xs text-ink-200">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-ink-600 bg-ink-850 px-3 text-sm text-ink-200 hover:border-ink-400">
               <input
                 type="checkbox"
                 checked={quickWinsOnly}
@@ -395,18 +405,70 @@ export function ReportView({ report, onReset }: { report: AuditReport; onReset: 
         )}
       </section>
 
-      {/* Lead capture — the point of the tool as a lead magnet. */}
+      {/* Lead capture: the point of the tool as a lead magnet. */}
       <div className="print:hidden">
         <ContactCTA report={report} />
       </div>
+    </main>
+  );
+}
+
+const SEGMENT_COLOR: Record<Severity, string> = {
+  critical: "var(--color-critical)",
+  high: "var(--color-high)",
+  medium: "var(--color-medium)",
+  low: "var(--color-low)",
+};
+
+/**
+ * Answers "what takes it to 100?": a bar from today's score to 100, built from
+ * each fix's points (issue.points, computed server-side from the real scoring).
+ */
+function PathTo100({ score, issues }: { score: number; issues: Issue[] }) {
+  const worth = issues.filter((i) => (i.points ?? 0) > 0);
+  if (score >= 100 || worth.length === 0) return null;
+
+  const top = issues.slice(0, 3);
+  const topGain = top.reduce((a, i) => a + (i.points ?? 0), 0);
+
+  return (
+    <div className="mt-8 border-t border-ink-700/60 pt-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-display text-base font-semibold text-ink-100">Path to 100</h3>
+        <span className="text-xs text-ink-400">Audit score points, not a sales forecast</span>
+      </div>
+      <div
+        role="img"
+        aria-label={`Score ${score} now. The top ${top.length} fixes add ${topGain} points; fixing all ${issues.length} findings reaches 100.`}
+        className="mt-3 flex h-3 overflow-hidden rounded-full bg-ink-800"
+      >
+        <div className="bg-ink-500" style={{ width: `${score}%` }} title={`Today: ${score}`} />
+        {worth.map((i) => (
+          <div
+            key={i.id}
+            className="border-l-2 border-ink-900"
+            style={{ width: `${i.points}%`, background: SEGMENT_COLOR[i.severity] }}
+            title={`${i.title}: +${i.points}`}
+          />
+        ))}
+      </div>
+      <div className="mt-1.5 flex justify-between text-xs text-ink-400">
+        <span>Today: {score}</span>
+        <span>100</span>
+      </div>
+      <p className="mt-3 text-sm leading-relaxed text-ink-300">
+        Fixing the top {top.length} takes this page from{" "}
+        <strong className="font-semibold text-ink-100">{score}</strong> to{" "}
+        <strong className="font-semibold text-good">{score + topGain}</strong>. Working through all{" "}
+        {issues.length} findings below takes it to <strong className="font-semibold text-good">100</strong>.
+        Each finding shows the points it adds, in the order listed.
+      </p>
     </div>
   );
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-400">{children}</h2>
-  );
+  return <h2 className="text-base font-semibold text-ink-100">{children}</h2>;
 }
 
 function Detail({
@@ -420,8 +482,10 @@ function Detail({
 }) {
   return (
     <div>
-      <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-500">{term}</dt>
-      <dd className={`mt-1 text-sm leading-relaxed ${highlight ? "text-brand-400" : "text-ink-200"}`}>
+      <dt className="text-xs font-medium text-ink-400">{term}</dt>
+      <dd
+        className={`mt-1 text-sm leading-relaxed ${highlight ? "font-semibold text-ink-100" : "text-ink-200"}`}
+      >
         {value}
       </dd>
     </div>
@@ -444,7 +508,7 @@ function MetricRow({
   target: string;
 }) {
   const cell = (v: number | null) => {
-    if (v === null) return <span className="text-ink-600">n/a</span>;
+    if (v === null) return <span className="text-ink-500">Not measured</span>;
     const bad = v > threshold;
     return (
       <span className={bad ? "text-high" : "text-good"}>
@@ -457,31 +521,34 @@ function MetricRow({
       <td className="py-2 text-ink-300">{name}</td>
       <td className="py-2 tabular-nums">{cell(d)}</td>
       <td className="py-2 tabular-nums">{cell(m)}</td>
-      <td className="py-2 text-xs text-ink-500">{target}</td>
+      <td className="py-2 text-xs text-ink-400">{target}</td>
     </tr>
   );
 }
 
 function FilterGroup<T extends string>({
+  label: groupLabel,
   value,
   onChange,
   options,
 }: {
+  label: string;
   value: T;
   onChange: (v: T) => void;
   options: Array<[T, string]>;
 }) {
   return (
-    <div className="flex overflow-hidden rounded-lg border border-ink-600">
+    <div role="group" aria-label={groupLabel} className="flex overflow-hidden rounded-lg border border-ink-600">
       {options.map(([val, label]) => (
         <button
           key={val}
           type="button"
+          aria-pressed={value === val}
           onClick={() => onChange(val)}
-          className={`px-2.5 py-1.5 text-xs transition-colors ${
+          className={`min-h-11 px-3 text-sm transition-colors ${
             value === val
-              ? "bg-brand-500 font-medium text-white"
-              : "bg-ink-850 text-ink-300 hover:bg-ink-800"
+              ? "bg-brand-500 font-semibold text-ink-950"
+              : "bg-ink-850 text-ink-300 hover:bg-ink-800 hover:text-ink-100"
           }`}
         >
           {label}

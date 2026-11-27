@@ -263,6 +263,8 @@ export interface Issue {
   expectedImpact: "high" | "medium" | "low";
   confidence: "high" | "medium" | "low";
   source: "rule" | "ai";
+  /** Audit-score points this fix adds, working down the list in order (see pointsPerFix). */
+  points?: number;
 }
 
 export interface SiteUnderstanding {
