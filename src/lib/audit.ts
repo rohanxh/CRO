@@ -118,14 +118,18 @@ export async function runAudit({ url, onProgress }: RunAuditOptions): Promise<Au
         );
       if (missed.length) issues = [...issues, ...signalsToIssues(missed)];
     } catch (err) {
-      aiError = err instanceof Error ? err.message : String(err);
+      // Visitors see a neutral message; the real cause (billing, rate limit,
+      // outage) goes to the server log for us, not into a public report.
+      console.error("AI analysis failed:", err);
+      aiError = "Please try again in a little while.";
       issues = signalsToIssues(signals);
       summary = fallbackSummary(signals);
     }
   } else {
     issues = signalsToIssues(signals);
     summary = fallbackSummary(signals);
-    aiError = "ANTHROPIC_API_KEY is not configured on the server.";
+    console.error("AI analysis skipped: ANTHROPIC_API_KEY is not set.");
+    aiError = "Please try again in a little while.";
   }
 
   emit("score", "Scoring and prioritising…", 92);
